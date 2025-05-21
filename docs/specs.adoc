@@ -1,0 +1,69 @@
+= Documento di analisi
+
+== Attori principali
+
+Con una analisi preliminare si può stilare un elenco con i principali attori ed i loro attributi, in *grassetto*
+viene indicato l'identificativo dell'attore, in _italic_ eventuali chiavi esterne.
+Eventuali attributi opzionali saranno segnalati con la dicitura [opzionale] accanto all'attributo stesso.
+
+
+* Negozio
+**  *ID*
+**  Responsabile
+**  Orari apertura
+**  Indirizzo
+
+
+* Prodotto
+** *ID*
+** Nome
+** Descrizione
+
+
+* Fornitore
+** *P.IVA*
+** Indirizzo
+
+
+* Ordine
+** *ID*
+** Data di consegna
+
+* Cliente
+** *Codice Fiscale*
+** Nome
+
+* Tessera
+** *_Assegnatario_*
+** Data di richiesta
+** Negozio di rilascio
+** Saldo punti
+
+* Fattura
+** *ID*
+** Data di acquisto
+** Elenco dei prodotti acquistati (con prezzo)
+** Sconto percentuale applicato [opzionale]
+** Totale pagato
+
+
+Note importanti:
+
+* Lo stesso prodotto può essere disponibile in negozi diversi con prezzi diversi
+* Un fornitore  può fornire diversi prodotti e lo stesso prodotto può essere fornito da fornitori diversi
+* Occorre tenere traccia della disponibilità dei prodotti presso ciascun fornitore (in numero di pezzi)
+* Ogni cliente può richiedere al più una tessera fedeltà, e la tessera viene rilasciata da uno dei negozi (questo mi suggerisce presenza di entità debole)
+
+== Relazioni
+
+Il legame tra i vari prodotti ed i negozi è chiaro: un prodotto è disponibile in zero, uno o più negozi. +
+In ogni negozio il prodotto ha un certo prezzo (assumiamo prezzi in euro?).  +
+Questo suggerisce una relazione molti a molti tra l'entità negozio e l'entità prodotto, dove il prezzo è attributo non opzionale della relazione.  +
+
+In maniera analoga, esiste un legame tra prodotto e fornitore, dove la disponibilità in pezzi è attributo della relazione.
+Anche in questo caso parliamo di relazione molti a molti.
+
+Il fatto che ogni cliente possa richiedere al più una tessera permette di trattare quest'ultima come entità debole rispetto al cliente, l'indetificativo
+della eventuale tessera di un cliente è esattamente l'identificativo del cliente che la possiede.
+
+
