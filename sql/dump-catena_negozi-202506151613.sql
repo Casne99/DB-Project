@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-15 14:49:05
+-- Started on 2025-06-15 16:13:01
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -52,8 +52,8 @@ ALTER TABLE develop.clienti OWNER TO postgres;
 --
 
 CREATE TABLE develop.costi (
-    deposito integer NOT NULL,
-    prodotto integer NOT NULL,
+    deposito character varying(7) NOT NULL,
+    prodotto character varying(7) NOT NULL,
     prezzo numeric(8,2) DEFAULT 0 NOT NULL
 );
 
@@ -66,8 +66,8 @@ ALTER TABLE develop.costi OWNER TO postgres;
 --
 
 CREATE TABLE develop.disponibilita (
-    deposito integer NOT NULL,
-    prodotto integer NOT NULL,
+    deposito character varying(7) NOT NULL,
+    prodotto character varying(7) NOT NULL,
     quantita integer NOT NULL
 );
 
@@ -122,7 +122,7 @@ ALTER SEQUENCE develop.fatture_id_seq OWNED BY develop.fatture.id;
 --
 
 CREATE TABLE develop.fornitori (
-    id integer NOT NULL,
+    id character varying(7) NOT NULL,
     partita_iva character(11) NOT NULL
 );
 
@@ -149,7 +149,7 @@ ALTER TABLE develop.manager OWNER TO postgres;
 --
 
 CREATE TABLE develop.negozi (
-    id integer NOT NULL,
+    id character varying(7) NOT NULL,
     orario_apertura time without time zone NOT NULL,
     orario_chiusura time without time zone NOT NULL,
     responsabile character varying(100) NOT NULL,
@@ -167,8 +167,8 @@ ALTER TABLE develop.negozi OWNER TO postgres;
 CREATE TABLE develop.ordini (
     id integer NOT NULL,
     data_consegna date NOT NULL,
-    negozio integer NOT NULL,
-    fornitore integer NOT NULL
+    negozio character varying(7) NOT NULL,
+    fornitore character varying(7) NOT NULL
 );
 
 
@@ -205,7 +205,7 @@ ALTER SEQUENCE develop.ordine_id_seq OWNED BY develop.ordini.id;
 --
 
 CREATE TABLE develop.prodotti (
-    id integer NOT NULL,
+    id character varying(7) NOT NULL,
     nome character varying(100) NOT NULL,
     descrizione text NOT NULL
 );
@@ -219,7 +219,7 @@ ALTER TABLE develop.prodotti OWNER TO postgres;
 --
 
 CREATE TABLE develop.prodotti_fattura (
-    prodotto integer NOT NULL,
+    prodotto character varying(7) NOT NULL,
     fattura integer NOT NULL,
     quantita integer NOT NULL
 );
@@ -235,7 +235,7 @@ ALTER TABLE develop.prodotti_fattura OWNER TO postgres;
 CREATE TABLE develop.prodotti_ordine (
     quantita integer NOT NULL,
     ordine integer NOT NULL,
-    prodotto integer NOT NULL
+    prodotto character varying(7) NOT NULL
 );
 
 
@@ -247,7 +247,7 @@ ALTER TABLE develop.prodotti_ordine OWNER TO postgres;
 --
 
 CREATE TABLE develop.punti_deposito (
-    id integer NOT NULL,
+    id character varying(7) NOT NULL,
     indirizzo character varying(120) NOT NULL
 );
 
@@ -263,7 +263,7 @@ CREATE TABLE develop.tessere (
     punti integer DEFAULT 0 NOT NULL,
     data_richiesta date NOT NULL,
     proprietario character(16) NOT NULL,
-    negozio_di_rilascio integer NOT NULL
+    negozio_di_rilascio character varying(7) NOT NULL
 );
 
 
@@ -469,7 +469,7 @@ ALTER TABLE ONLY develop.clienti
 
 
 --
--- TOC entry 4721 (class 2606 OID 18965)
+-- TOC entry 4721 (class 2606 OID 19028)
 -- Name: costi costi_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -478,7 +478,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4719 (class 2606 OID 18949)
+-- TOC entry 4719 (class 2606 OID 19014)
 -- Name: disponibilita disponibilita_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -496,7 +496,7 @@ ALTER TABLE ONLY develop.fatture
 
 
 --
--- TOC entry 4707 (class 2606 OID 18884)
+-- TOC entry 4707 (class 2606 OID 19053)
 -- Name: fornitori fornitore_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -514,7 +514,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4705 (class 2606 OID 18864)
+-- TOC entry 4705 (class 2606 OID 19065)
 -- Name: negozi negozio_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -541,7 +541,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4723 (class 2606 OID 18980)
+-- TOC entry 4723 (class 2606 OID 19100)
 -- Name: prodotti_fattura prodotti_fattura_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -550,7 +550,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4717 (class 2606 OID 18934)
+-- TOC entry 4717 (class 2606 OID 19121)
 -- Name: prodotti_ordine prodotti_ordine_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -559,7 +559,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4715 (class 2606 OID 18929)
+-- TOC entry 4715 (class 2606 OID 19092)
 -- Name: prodotti prodotti_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -568,7 +568,7 @@ ALTER TABLE ONLY develop.prodotti
 
 
 --
--- TOC entry 4703 (class 2606 OID 18859)
+-- TOC entry 4703 (class 2606 OID 19034)
 -- Name: punti_deposito punto_deposito_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -604,7 +604,7 @@ ALTER TABLE ONLY develop.clienti
 
 
 --
--- TOC entry 4738 (class 2606 OID 18971)
+-- TOC entry 4738 (class 2606 OID 19146)
 -- Name: costi costi_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -613,7 +613,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4739 (class 2606 OID 18966)
+-- TOC entry 4739 (class 2606 OID 19141)
 -- Name: costi costi_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -622,7 +622,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4736 (class 2606 OID 18955)
+-- TOC entry 4736 (class 2606 OID 19136)
 -- Name: disponibilita disponibilita_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -631,7 +631,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4737 (class 2606 OID 18950)
+-- TOC entry 4737 (class 2606 OID 19131)
 -- Name: disponibilita disponibilita_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -649,16 +649,25 @@ ALTER TABLE ONLY develop.fatture
 
 
 --
--- TOC entry 4730 (class 2606 OID 18887)
--- Name: fornitori fornitore_punto_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
+-- TOC entry 4730 (class 2606 OID 19059)
+-- Name: fornitori fornitori_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.fornitori
-    ADD CONSTRAINT fornitore_punto_deposito_fk FOREIGN KEY (id) REFERENCES develop.punti_deposito(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT fornitori_punti_deposito_fk FOREIGN KEY (id) REFERENCES develop.punti_deposito(id);
 
 
 --
--- TOC entry 4728 (class 2606 OID 18875)
+-- TOC entry 4728 (class 2606 OID 19070)
+-- Name: negozi negozi_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
+--
+
+ALTER TABLE ONLY develop.negozi
+    ADD CONSTRAINT negozi_punti_deposito_fk FOREIGN KEY (id) REFERENCES develop.punti_deposito(id);
+
+
+--
+-- TOC entry 4729 (class 2606 OID 18875)
 -- Name: negozi negozio_manager_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -667,30 +676,21 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4729 (class 2606 OID 18865)
--- Name: negozi negozio_punto_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
---
-
-ALTER TABLE ONLY develop.negozi
-    ADD CONSTRAINT negozio_punto_deposito_fk FOREIGN KEY (id) REFERENCES develop.punti_deposito(id) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- TOC entry 4731 (class 2606 OID 18899)
--- Name: ordini ordine_fornitore_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
+-- TOC entry 4731 (class 2606 OID 19110)
+-- Name: ordini ordini_fornitori_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.ordini
-    ADD CONSTRAINT ordine_fornitore_fk FOREIGN KEY (fornitore) REFERENCES develop.fornitori(id);
+    ADD CONSTRAINT ordini_fornitori_fk FOREIGN KEY (fornitore) REFERENCES develop.fornitori(id);
 
 
 --
--- TOC entry 4732 (class 2606 OID 18904)
--- Name: ordini ordine_negozio_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
+-- TOC entry 4732 (class 2606 OID 19115)
+-- Name: ordini ordini_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.ordini
-    ADD CONSTRAINT ordine_negozio_fk FOREIGN KEY (negozio) REFERENCES develop.negozi(id);
+    ADD CONSTRAINT ordini_negozi_fk FOREIGN KEY (negozio) REFERENCES develop.negozi(id);
 
 
 --
@@ -703,12 +703,12 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4741 (class 2606 OID 18986)
+-- TOC entry 4741 (class 2606 OID 19105)
 -- Name: prodotti_fattura prodotti_fattura_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.prodotti_fattura
-    ADD CONSTRAINT prodotti_fattura_prodotti_fk FOREIGN KEY (prodotto) REFERENCES develop.prodotti(id);
+    ADD CONSTRAINT prodotti_fattura_prodotti_fk FOREIGN KEY (prodotto) REFERENCES develop.prodotti(id) ON UPDATE CASCADE;
 
 
 --
@@ -721,7 +721,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4735 (class 2606 OID 18935)
+-- TOC entry 4735 (class 2606 OID 19126)
 -- Name: prodotti_ordine prodotti_ordine_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -739,12 +739,12 @@ ALTER TABLE ONLY develop.tessere
 
 
 --
--- TOC entry 4727 (class 2606 OID 18870)
--- Name: tessere tessera_negozio_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
+-- TOC entry 4727 (class 2606 OID 19076)
+-- Name: tessere tessere_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.tessere
-    ADD CONSTRAINT tessera_negozio_fk FOREIGN KEY (negozio_di_rilascio) REFERENCES develop.negozi(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT tessere_negozi_fk FOREIGN KEY (negozio_di_rilascio) REFERENCES develop.negozi(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -774,7 +774,7 @@ GRANT USAGE ON SCHEMA develop TO webapp;
 GRANT SELECT ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-15 14:49:05
+-- Completed on 2025-06-15 16:13:02
 
 --
 -- PostgreSQL database dump complete
