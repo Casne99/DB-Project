@@ -60,7 +60,7 @@ Il legame tra i vari prodotti ed i negozi è chiaro: un prodotto è disponibile 
 In ogni negozio il prodotto ha un certo prezzo (assumiamo prezzi in euro?).  +
 Questo suggerisce una relazione molti a molti tra l'entità negozio e l'entità prodotto, dove il prezzo è attributo non opzionale della relazione.  +
 
-In maniera analoga, esiste un legame tra prodotto e fornitore, dove la disponibilità in pezzi è attributo della relazione.
+In maniera analoga, esiste un legame tra prodotto e fornitore che identifica la disponibilità del prodotto presso il fornitore, dove la disponibilità in pezzi è attributo della relazione.
 Anche in questo caso parliamo di relazione molti a molti.
 
 Il fatto che ogni cliente possa richiedere al più una tessera permette di trattare quest'ultima come entità debole rispetto al cliente, l'indetificativo
