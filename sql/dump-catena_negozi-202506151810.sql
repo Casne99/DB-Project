@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-15 16:13:01
+-- Started on 2025-06-15 18:10:06
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -305,6 +305,8 @@ ALTER TABLE ONLY develop.ordini ALTER COLUMN id SET DEFAULT nextval('develop.ord
 --
 
 COPY develop.clienti (nome, login, codice_fiscale) FROM stdin;
+Claudio Gennari	claudio.gennari@gmail.com	CLDGNR99C08F576W
+Sara Brusaferri	sara.brusaferri@gmail.com	SRABRS98C08F576W
 \.
 
 
@@ -345,6 +347,18 @@ COPY develop.fatture (sconto_applicato, totale, data_acquisto, id, cliente) FROM
 --
 
 COPY develop.fornitori (id, partita_iva) FROM stdin;
+01JTS25	11223344556
+01JTS14	01234567890
+01JTS15	09876543210
+01JTS16	12345678901
+01JTS17	23456789012
+01JTS18	34567890123
+01JTS19	45678901234
+01JTS20	56789012345
+01JTS21	67890123456
+01JTS22	78901234567
+01JTS23	89012345678
+01JTS24	90123456789
 \.
 
 
@@ -366,6 +380,19 @@ COPY develop.manager (id, nome, login) FROM stdin;
 --
 
 COPY develop.negozi (id, orario_apertura, orario_chiusura, responsabile, manager) FROM stdin;
+01JTS13	09:00:00	18:00:00	Davide Fontana	1
+01JTS01	08:00:00	18:00:00	Mario Rossi	1
+01JTS02	08:30:00	17:30:00	Luisa Bianchi	1
+01JTS03	09:00:00	18:00:00	Giovanni Verdi	1
+01JTS04	08:00:00	17:00:00	Chiara Neri	1
+01JTS05	07:30:00	16:30:00	Federico Gallo	1
+01JTS06	08:00:00	17:00:00	Elena Russo	1
+01JTS07	09:00:00	18:00:00	Luca Conti	1
+01JTS08	08:30:00	17:30:00	Sara Costa	1
+01JTS09	08:00:00	16:00:00	Alessandro Greco	1
+01JTS10	07:00:00	15:00:00	Martina De Luca	1
+01JTS11	08:00:00	17:00:00	Giorgio Rinaldi	1
+01JTS12	08:00:00	17:00:00	Francesca Moretti	1
 \.
 
 
@@ -416,6 +443,31 @@ COPY develop.prodotti_ordine (quantita, ordine, prodotto) FROM stdin;
 --
 
 COPY develop.punti_deposito (id, indirizzo) FROM stdin;
+01JTS21	7 Wayridge Place
+01JTS01	28964 Ridgeview Park
+01JTS02	136 Service Junction
+01JTS03	05354 Raven Parkway
+01JTS04	42 Village Green Trail
+01JTS05	753 Kings Street
+01JTS06	0403 Garrison Crossing
+01JTS07	230 Independence Terrace
+01JTS08	16247 Northview Way
+01JTS09	4201 Derek Junction
+01JTS10	3 Annamark Pass
+01JTS11	833 Huxley Drive
+01JTS12	44 Scofield Place
+01JTS13	9 Bartillon Point
+01JTS14	81 Northport Place
+01JTS15	39653 Moose Drive
+01JTS16	5585 Mosinee Road
+01JTS17	3010 Quincy Center
+01JTS18	5 Golden Leaf Plaza
+01JTS19	7 Clarendon Place
+01JTS20	718 Scofield Drive
+01JTS22	247 Green Ridge Point
+01JTS23	04276 Grayhawk Junction
+01JTS24	494 Westport Point
+01JTS25	019 Hagan Street
 \.
 
 
@@ -437,7 +489,8 @@ COPY develop.tessere (punti, data_richiesta, proprietario, negozio_di_rilascio) 
 
 COPY develop.utenze (login, password) FROM stdin;
 mario.brambilla@protonmail.com	$2b$12$BlfkUex.b34CHgM03kvL0eE2b/z8b/tmIpBcU1B4E7G2BwkPpxU.a
-caludio.gennari@gmail.com	$2b$12$VC3rIRGLGphbSasHU0AZEOU3VnZB3mTt2xKRDIeQwVwXy/.wCfN6C
+claudio.gennari@gmail.com	$2b$12$VC3rIRGLGphbSasHU0AZEOU3VnZB3mTt2xKRDIeQwVwXy/.wCfN6C
+sara.brusaferri@gmail.com	$2b$12$zoyCynJrJx0/FjIRtp2s.eqL5NkSNLMloMfGPnC7t/ejlh1XxR0DC
 \.
 
 
@@ -774,7 +827,7 @@ GRANT USAGE ON SCHEMA develop TO webapp;
 GRANT SELECT ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-15 16:13:02
+-- Completed on 2025-06-15 18:10:06
 
 --
 -- PostgreSQL database dump complete
