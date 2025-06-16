@@ -1,22 +1,13 @@
 <?php
+session_start();
 
-require 'config.php';
+require_once __DIR__ . '/config/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    try {
-        $pdo = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-        ]);
-
-        $pdo->exec("SET search_path = develop");
-
-    } catch (PDOException $e) {
-        die("Errore di connessione al database: " . $e->getMessage());
-    }
-
+    $pdo->exec("SET search_path = develop");
 
     $stmt = $pdo->prepare('SELECT password FROM develop.utenze WHERE login = :email');
     $stmt->execute(['email' => $email]);
@@ -26,8 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $hashSalvato = $result['password'];
 
         if (password_verify($password, $hashSalvato)) {
+            $_SESSION['user_email'] = $email;
+            $_SESSION['logged_in'] = true;
             echo "Accesso consentito. Benvenuto, " . htmlspecialchars($email) . "!";
-            // Qui potrebbe iniziare una sessione o altro...
         } else {
             echo "Password errata.";
         }
@@ -37,4 +29,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } else {
     echo "Metodo di richiesta non valido.";
 }
-?>

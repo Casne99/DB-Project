@@ -1,11 +1,7 @@
 <?php
-$host = 'localhost';
-$port = 5432;
-$dbname = 'catena_negozi';
-$user = 'user';
-$pass = 'pw';
+// config/db.php
 
-$dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+require_once __DIR__ . '/config.php';
 
 try {
     $pdo = new PDO($dsn, $user, $pass, [
@@ -14,4 +10,3 @@ try {
 } catch (PDOException $e) {
     die("Errore nella connessione: " . htmlspecialchars($e->getMessage()));
 }
-?>
