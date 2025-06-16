@@ -2,6 +2,8 @@
 session_start();
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/../utils/php/utils.php';
+
 
 $messaggio = '';
 
@@ -21,6 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (password_verify($password, $hashSalvato)) {
             $_SESSION['user_email'] = $email;
             $_SESSION['logged_in'] = true;
+
+            $ruolo = get_user_role($pdo, $email);
+            if (!$ruolo) {
+                session_destroy();
+                die("Ruolo non assegnato all'utente.");
+            }
+            $_SESSION['user_role'] = $ruolo;
 
             header('Location: dashboard.php');
             exit;

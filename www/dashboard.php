@@ -7,6 +7,7 @@ if (empty($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 $user_email = $_SESSION['user_email'];
+$user_role = $_SESSION['user_role'];
 ?>
 
 <!DOCTYPE html>
@@ -16,7 +17,7 @@ $user_email = $_SESSION['user_email'];
     <title>Dashboard</title>
 </head>
 <body>
-    <h1>Benvenuto, <?= htmlspecialchars($user_email) ?>!</h1>
+    <h1>Benvenuto, <?= htmlspecialchars($user_email) . "! [" . htmlspecialchars($user_role) . "]" ?></h1>
 
     <p><a href="cambia_password.php">Cambia Password</a></p>
 
