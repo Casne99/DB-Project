@@ -19,6 +19,62 @@ function get_user_role(PDO $pdo, string $login): UserRole
     return UserRole::Unknown;
 }
 
+// TODO: restringere modifica password da parte di un manager ai soli clienti e non ai manager stessi
+function add_user(PDO $pdo, string $email, string $password, string $nomeCompleto, string $codiceFiscale): bool
+{
+    $logFile = __DIR__ . '/app_debug.log';
+    $log = fn($message) => error_log(date('[Y-m-d H:i:s] ') . $message . PHP_EOL, 3, $logFile);
+
+    $log("Inizio funzione add_user con email: $email");
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->exec("SET search_path = develop");
+        $log("Impostato search_path a develop");
+
+        $stmt = $pdo->prepare("SELECT 1 FROM develop.utenze WHERE login = :email");
+        $stmt->execute(['email' => $email]);
+        if ($stmt->fetch()) {
+            $log("Utente già esistente con login: $email");
+            throw new Exception("Utente già esistente.");
+        }
+
+        $hashPassword = password_hash($password, PASSWORD_DEFAULT);
+        $log("Password hash generato");
+
+        $stmt = $pdo->prepare("
+            INSERT INTO develop.utenze (login, password)
+            VALUES (:email, :password)
+        ");
+        $stmt->execute([
+            'email' => $email,
+            'password' => $hashPassword
+        ]);
+        $log("Inserito in develop.utenze: $email");
+
+        $stmt = $pdo->prepare("
+            INSERT INTO develop.clienti (login, nome, codice_fiscale)
+            VALUES (:email, :nome, :cf)
+        ");
+        $stmt->execute([
+            'email' => $email,
+            'nome' => $nomeCompleto,
+            'cf' => $codiceFiscale
+        ]);
+        $log("Inserito in develop.clienti: $email - $nomeCompleto - $codiceFiscale");
+
+        $pdo->commit();
+        $log("Transazione completata con successo");
+        return true;
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $log("ERRORE: Transazione annullata - " . $e->getMessage());
+        return false;
+    }
+}
+
+
 
 enum UserRole: string
 {
