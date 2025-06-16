@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-15 18:10:06
+-- Started on 2025-06-16 21:47:29
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -108,7 +108,7 @@ CREATE SEQUENCE develop.fatture_id_seq
 ALTER SEQUENCE develop.fatture_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4907 (class 0 OID 0)
+-- TOC entry 4908 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: fatture_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -191,7 +191,7 @@ CREATE SEQUENCE develop.ordine_id_seq
 ALTER SEQUENCE develop.ordine_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4908 (class 0 OID 0)
+-- TOC entry 4910 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: ordine_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -307,6 +307,7 @@ ALTER TABLE ONLY develop.ordini ALTER COLUMN id SET DEFAULT nextval('develop.ord
 COPY develop.clienti (nome, login, codice_fiscale) FROM stdin;
 Claudio Gennari	claudio.gennari@gmail.com	CLDGNR99C08F576W
 Sara Brusaferri	sara.brusaferri@gmail.com	SRABRS98C08F576W
+sara gianni	sara.gianni@gmail.com	GNNSRA95C55F205Z
 \.
 
 
@@ -488,14 +489,15 @@ COPY develop.tessere (punti, data_richiesta, proprietario, negozio_di_rilascio) 
 --
 
 COPY develop.utenze (login, password) FROM stdin;
-mario.brambilla@protonmail.com	$2b$12$BlfkUex.b34CHgM03kvL0eE2b/z8b/tmIpBcU1B4E7G2BwkPpxU.a
 claudio.gennari@gmail.com	$2b$12$VC3rIRGLGphbSasHU0AZEOU3VnZB3mTt2xKRDIeQwVwXy/.wCfN6C
 sara.brusaferri@gmail.com	$2b$12$zoyCynJrJx0/FjIRtp2s.eqL5NkSNLMloMfGPnC7t/ejlh1XxR0DC
+sara.gianni@gmail.com	$2y$10$saJehlmBIZDwWkhIM4ojoOTdTnxhxiVggbKkW2dkcNtNx3siW0r9e
+mario.brambilla@protonmail.com	$2y$10$/llMa72HAQBNJoKLiPlssuSVxcMgSBqegAPCuXXdOdnLxYdRH.4km
 \.
 
 
 --
--- TOC entry 4910 (class 0 OID 0)
+-- TOC entry 4912 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: fatture_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
@@ -504,7 +506,7 @@ SELECT pg_catalog.setval('develop.fatture_id_seq', 1, false);
 
 
 --
--- TOC entry 4911 (class 0 OID 0)
+-- TOC entry 4913 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: ordine_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
@@ -819,15 +821,33 @@ GRANT USAGE ON SCHEMA develop TO webapp;
 
 
 --
+-- TOC entry 4907 (class 0 OID 0)
+-- Dependencies: 218
+-- Name: TABLE clienti; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE develop.clienti TO webapp;
+
+
+--
 -- TOC entry 4909 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: TABLE manager; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT ON TABLE develop.manager TO webapp;
+
+
+--
+-- TOC entry 4911 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: TABLE utenze; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT ON TABLE develop.utenze TO webapp;
+GRANT SELECT,INSERT,UPDATE ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-15 18:10:06
+-- Completed on 2025-06-16 21:47:29
 
 --
 -- PostgreSQL database dump complete
