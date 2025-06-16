@@ -10,7 +10,9 @@ $user_email = $_SESSION['user_email'];
 $user_role = $_SESSION['user_role'];
 
 $menu_config = require __DIR__ . '/config/menu.php';
-$menu = $menu_config[$user_role] ?? $menu_config['default'];?>
+$menu = $menu_config[$user_role] ?? $menu_config['default'];
+?>
+
 
 <!DOCTYPE html>
 <html lang="it">

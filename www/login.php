@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_destroy();
                 die("Ruolo non assegnato all'utente.");
             }
-            $_SESSION['user_role'] = $ruolo;
+            $_SESSION['user_role'] = $ruolo->value;
 
             header('Location: dashboard.php');
             exit;
