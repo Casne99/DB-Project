@@ -8,7 +8,9 @@ if (empty($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 $user_email = $_SESSION['user_email'];
 $user_role = $_SESSION['user_role'];
-?>
+
+$menu_config = require __DIR__ . '/config/menu.php';
+$menu = $menu_config[$user_role] ?? $menu_config['default'];?>
 
 <!DOCTYPE html>
 <html lang="it">
@@ -18,6 +20,12 @@ $user_role = $_SESSION['user_role'];
 </head>
 <body>
     <h1>Benvenuto, <?= htmlspecialchars($user_email) . "! [" . htmlspecialchars($user_role) . "]" ?></h1>
+
+    <ul>
+        <?php foreach ($menu as $item): ?>
+            <li><a href="<?= htmlspecialchars($item['link']) ?>"><?= htmlspecialchars($item['label']) ?></a></li>
+        <?php endforeach; ?>
+    </ul>
 
     <p><a href="cambia_password.php">Cambia Password</a></p>
 
