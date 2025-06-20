@@ -17,15 +17,20 @@ $menu = $menu_config[$user_role] ?? $menu_config['default'];
 $pdo->exec("SET search_path = develop");
 
 $punti = 0;
+$tessera = null;
+$nome_cliente = null;
+$cognome_cliente = null;
 
 if ($user_role === 'cliente') {
     try {
-        $stmt = $pdo->prepare('SELECT codice_fiscale FROM clienti WHERE login = :email');
+        $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome FROM clienti WHERE login = :email');
         $stmt->execute([':email' => $user_email]);
         $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($cliente && isset($cliente['codice_fiscale'])) {
             $cf = $cliente['codice_fiscale'];
+            $nome_cliente = $cliente['nome'];
+            $cognome_cliente = $cliente['cognome'];
 
             $stmt = $pdo->prepare('SELECT punti FROM tessere WHERE proprietario = :cf');
             $stmt->execute([':cf' => $cf]);
@@ -36,7 +41,7 @@ if ($user_role === 'cliente') {
             }
         }
     } catch (PDOException $e) {
-        die("Errore durante il recupero dei punti: " . htmlspecialchars($e->getMessage()));
+        die("Errore durante il recupero dei dati cliente: " . htmlspecialchars($e->getMessage()));
     }
 }
 ?>
@@ -48,10 +53,22 @@ if ($user_role === 'cliente') {
     <title>Dashboard</title>
 </head>
 <body>
-    <h1>Benvenuto, <?= htmlspecialchars($user_email) . "! [" . htmlspecialchars($user_role) . "]" ?></h1>
+    <h1>
+        Benvenuto,
+        <?php if ($user_role === 'cliente' && $nome_cliente && $cognome_cliente): ?>
+            <?= htmlspecialchars($nome_cliente) . ' ' . htmlspecialchars($cognome_cliente) ?>
+        <?php else: ?>
+            <?= htmlspecialchars($user_email) ?>
+        <?php endif; ?>
+        [<?= htmlspecialchars($user_role) ?>]
+    </h1>
 
     <?php if ($user_role === 'cliente'): ?>
-        <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
+        <?php if (isset($tessera)): ?>
+            <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
+        <?php else: ?>
+            <p>Non hai richiesto alcuna tessera fedeltà.</p>
+        <?php endif; ?>
     <?php endif; ?>
 
     <ul>
