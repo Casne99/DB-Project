@@ -20,10 +20,11 @@ $punti = 0;
 $tessera = null;
 $nome_cliente = null;
 $cognome_cliente = null;
+$genere_cliente = null;
 
 if ($user_role === 'cliente') {
     try {
-        $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome FROM clienti WHERE login = :email');
+        $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome, genere FROM clienti WHERE login = :email');
         $stmt->execute([':email' => $user_email]);
         $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -31,6 +32,7 @@ if ($user_role === 'cliente') {
             $cf = $cliente['codice_fiscale'];
             $nome_cliente = $cliente['nome'];
             $cognome_cliente = $cliente['cognome'];
+            $genere_cliente = $cliente['genere'] ?? null;
 
             $stmt = $pdo->prepare('SELECT punti FROM tessere WHERE proprietario = :cf');
             $stmt->execute([':cf' => $cf]);
@@ -54,21 +56,25 @@ if ($user_role === 'cliente') {
 </head>
 <body>
     <h1>
-        Benvenuto,
+        <?php
+            if ($user_role === 'cliente' && $genere_cliente === 'F') {
+                echo 'Benvenuta,';
+            } else {
+                echo 'Benvenuto,';
+            }
+        ?>
         <?php if ($user_role === 'cliente' && $nome_cliente && $cognome_cliente): ?>
-            <?= htmlspecialchars($nome_cliente) . ' ' . htmlspecialchars($cognome_cliente) ?>
+            <?= ' ' . htmlspecialchars($nome_cliente) . ' ' . htmlspecialchars($cognome_cliente) ?>
         <?php else: ?>
-            <?= htmlspecialchars($user_email) ?>
+            <?= ' ' . htmlspecialchars($user_email) ?>
         <?php endif; ?>
         [<?= htmlspecialchars($user_role) ?>]
     </h1>
 
-    <?php if ($user_role === 'cliente'): ?>
-        <?php if (isset($tessera)): ?>
-            <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
-        <?php else: ?>
-            <p>Non hai richiesto alcuna tessera fedeltà.</p>
-        <?php endif; ?>
+    <?php if ($tessera !== false && isset($tessera['punti'])): ?>
+        <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
+    <?php else: ?>
+        <p>Non hai richiesto una tessera fedeltà.</p>
     <?php endif; ?>
 
     <ul>

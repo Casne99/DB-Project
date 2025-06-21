@@ -20,7 +20,7 @@ function get_user_role(PDO $pdo, string $login): UserRole
 }
 
 // TODO: restringere modifica password da parte di un manager ai soli clienti e non ai manager stessi
-function add_user(PDO $pdo, string $email, string $password, string $nomeCompleto, string $codiceFiscale): bool
+function add_user(PDO $pdo, string $email, string $password, string $nome, string $cognome, string $codiceFiscale, string $genere): bool
 {
     $logFile = __DIR__ . '/app_debug.log';
     $log = fn($message) => error_log(date('[Y-m-d H:i:s] ') . $message . PHP_EOL, 3, $logFile);
@@ -53,15 +53,17 @@ function add_user(PDO $pdo, string $email, string $password, string $nomeComplet
         $log("Inserito in develop.utenze: $email");
 
         $stmt = $pdo->prepare("
-            INSERT INTO develop.clienti (login, nome, codice_fiscale)
-            VALUES (:email, :nome, :cf)
+            INSERT INTO develop.clienti (login, nome, cognome, codice_fiscale, genere)
+            VALUES (:email, :nome, :cognome, :cf, :genere)
         ");
         $stmt->execute([
             'email' => $email,
-            'nome' => $nomeCompleto,
-            'cf' => $codiceFiscale
+            'nome' => $nome,
+            'cognome' => $cognome,
+            'cf' => $codiceFiscale,
+            'genere' => $genere
         ]);
-        $log("Inserito in develop.clienti: $email - $nomeCompleto - $codiceFiscale");
+        $log("Inserito in develop.clienti: $email - $nome $cognome - $codiceFiscale - $genere");
 
         $pdo->commit();
         $log("Transazione completata con successo");
@@ -73,6 +75,7 @@ function add_user(PDO $pdo, string $email, string $password, string $nomeComplet
         return false;
     }
 }
+
 
 
 
