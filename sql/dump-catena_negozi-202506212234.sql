@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-21 17:00:51
+-- Started on 2025-06-21 22:34:21
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -50,6 +50,32 @@ $$;
 ALTER FUNCTION develop.aggiorna_punti() OWNER TO postgres;
 
 --
+-- TOC entry 243 (class 1255 OID 19225)
+-- Name: check_login_exclusivity(); Type: FUNCTION; Schema: develop; Owner: postgres
+--
+
+CREATE FUNCTION develop.check_login_exclusivity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    -- Verifica se il login è già presente nell'altra tabella
+    IF TG_TABLE_NAME = 'clienti' THEN
+        IF EXISTS (SELECT 1 FROM develop.manager WHERE login = NEW.login) THEN
+            RAISE EXCEPTION 'Login % già associato a un manager', NEW.login;
+        END IF;
+    ELSIF TG_TABLE_NAME = 'manager' THEN
+        IF EXISTS (SELECT 1 FROM develop.clienti WHERE login = NEW.login) THEN
+            RAISE EXCEPTION 'Login % già associato a un cliente', NEW.login;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION develop.check_login_exclusivity() OWNER TO postgres;
+
+--
 -- TOC entry 238 (class 1255 OID 19156)
 -- Name: get_ordini_fornitore(character varying); Type: FUNCTION; Schema: develop; Owner: postgres
 --
@@ -86,7 +112,7 @@ $_$;
 ALTER FUNCTION develop.get_tessere_negozio(negozio character varying) OWNER TO postgres;
 
 --
--- TOC entry 255 (class 1255 OID 19224)
+-- TOC entry 256 (class 1255 OID 19224)
 -- Name: inserisci_fattura_con_sconto_json(character, character varying, jsonb, numeric); Type: FUNCTION; Schema: develop; Owner: postgres
 --
 
@@ -203,7 +229,7 @@ $$;
 ALTER FUNCTION develop.inserisci_fattura_con_sconto_json(p_cliente character, p_deposito character varying, p_prodotti_json jsonb, p_sconto_percentuale numeric) OWNER TO postgres;
 
 --
--- TOC entry 254 (class 1255 OID 19170)
+-- TOC entry 255 (class 1255 OID 19170)
 -- Name: inserisci_ordine_ottimizzato(text, json); Type: FUNCTION; Schema: develop; Owner: postgres
 --
 
@@ -377,7 +403,7 @@ CREATE SEQUENCE develop.fatture_id_seq
 ALTER SEQUENCE develop.fatture_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4945 (class 0 OID 0)
+-- TOC entry 4951 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: fatture_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -463,7 +489,7 @@ CREATE SEQUENCE develop.ordini_id_seq
 ALTER SEQUENCE develop.ordini_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4947 (class 0 OID 0)
+-- TOC entry 4955 (class 0 OID 0)
 -- Dependencies: 232
 -- Name: ordini_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -560,7 +586,7 @@ CREATE SEQUENCE develop.storico_ordini_id_seq
 ALTER SEQUENCE develop.storico_ordini_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4948 (class 0 OID 0)
+-- TOC entry 4958 (class 0 OID 0)
 -- Dependencies: 235
 -- Name: storico_ordini_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -626,7 +652,7 @@ CREATE TABLE develop.utenze (
 ALTER TABLE develop.utenze OWNER TO postgres;
 
 --
--- TOC entry 4715 (class 2604 OID 18914)
+-- TOC entry 4716 (class 2604 OID 18914)
 -- Name: fatture id; Type: DEFAULT; Schema: develop; Owner: postgres
 --
 
@@ -634,7 +660,7 @@ ALTER TABLE ONLY develop.fatture ALTER COLUMN id SET DEFAULT nextval('develop.fa
 
 
 --
--- TOC entry 4717 (class 2604 OID 19175)
+-- TOC entry 4718 (class 2604 OID 19175)
 -- Name: ordini id; Type: DEFAULT; Schema: develop; Owner: postgres
 --
 
@@ -642,7 +668,7 @@ ALTER TABLE ONLY develop.ordini ALTER COLUMN id SET DEFAULT nextval('develop.ord
 
 
 --
--- TOC entry 4718 (class 2604 OID 19214)
+-- TOC entry 4719 (class 2604 OID 19214)
 -- Name: storico_ordini id; Type: DEFAULT; Schema: develop; Owner: postgres
 --
 
@@ -650,7 +676,7 @@ ALTER TABLE ONLY develop.storico_ordini ALTER COLUMN id SET DEFAULT nextval('dev
 
 
 --
--- TOC entry 4921 (class 0 OID 18834)
+-- TOC entry 4924 (class 0 OID 18834)
 -- Dependencies: 218
 -- Data for Name: clienti; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -658,13 +684,14 @@ ALTER TABLE ONLY develop.storico_ordini ALTER COLUMN id SET DEFAULT nextval('dev
 COPY develop.clienti (nome, login, codice_fiscale, cognome, genere) FROM stdin;
 Claudio	claudio.gennari@gmail.com	CLDGNR99C08F576W	Gennari	M
 Sara	sara.brusaferri@gmail.com	SRABRS98C08F576W	Brusaferri	F
-Sara	sara.gianni@gmail.com	GNNSRA95C55F205Z	Gianni	F
 Riccardo	riccardo.nuzzo@gmail.com	NZZRCR90C08H501U	Nuzzo	M
+Carlo	carlo.sallusti@gmail.com	CRSLST95C55F205Z	Sallusti	M
+Sara	sara.gianni@gmail.com	GRNSA95C55F205ZU	Gianni	F
 \.
 
 
 --
--- TOC entry 4930 (class 0 OID 18960)
+-- TOC entry 4933 (class 0 OID 18960)
 -- Dependencies: 227
 -- Data for Name: costi; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -689,17 +716,12 @@ COPY develop.costi (deposito, prodotto, prezzo) FROM stdin;
 
 
 --
--- TOC entry 4929 (class 0 OID 18945)
+-- TOC entry 4932 (class 0 OID 18945)
 -- Dependencies: 226
 -- Data for Name: disponibilita; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.disponibilita (deposito, prodotto, quantita) FROM stdin;
-01JTS01	P00001	120
-01JTS01	P00002	80
-01JTS02	P00003	200
-01JTS04	P00005	100
-01JTS05	P00001	60
 01JTS06	P00002	90
 01JTS15	P00002	80
 01JTS16	P00003	200
@@ -710,11 +732,16 @@ COPY develop.disponibilita (deposito, prodotto, quantita) FROM stdin;
 01JTS14	P00001	13
 01JTS14	P00004	80
 01JTS03	P00004	87
+01JTS02	P00003	190
+01JTS04	P00005	80
+01JTS01	P00001	90
+01JTS01	P00002	50
+01JTS05	P00001	50
 \.
 
 
 --
--- TOC entry 4927 (class 0 OID 18910)
+-- TOC entry 4930 (class 0 OID 18910)
 -- Dependencies: 224
 -- Data for Name: fatture; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -725,11 +752,21 @@ COPY develop.fatture (sconto_applicato, totale, data_acquisto, id, cliente) FROM
 0.00	120.00	2025-06-21	5	NZZRCR90C08H501U
 0.00	40.00	2025-06-21	6	SRABRS98C08F576W
 0.00	40.00	2025-06-21	7	SRABRS98C08F576W
+0.00	27.00	2025-06-21	12	GRNSA95C55F205ZU
+0.00	27.00	2025-06-21	13	GRNSA95C55F205ZU
+0.00	9.00	2025-06-21	14	GRNSA95C55F205ZU
+0.00	6.00	2025-06-21	15	GRNSA95C55F205ZU
+0.00	1.10	2025-06-21	16	GRNSA95C55F205ZU
+0.00	2.20	2025-06-21	17	GRNSA95C55F205ZU
+0.00	7.70	2025-06-21	18	GRNSA95C55F205ZU
+0.00	11.00	2025-06-21	19	GRNSA95C55F205ZU
+0.00	21.00	2025-06-21	20	GRNSA95C55F205ZU
+0.00	12.50	2025-06-21	21	SRABRS98C08F576W
 \.
 
 
 --
--- TOC entry 4925 (class 0 OID 18880)
+-- TOC entry 4928 (class 0 OID 18880)
 -- Dependencies: 222
 -- Data for Name: fornitori; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -751,7 +788,7 @@ COPY develop.fornitori (id, partita_iva) FROM stdin;
 
 
 --
--- TOC entry 4920 (class 0 OID 18815)
+-- TOC entry 4923 (class 0 OID 18815)
 -- Dependencies: 217
 -- Data for Name: manager; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -762,7 +799,7 @@ COPY develop.manager (id, nome, login, cognome, genere) FROM stdin;
 
 
 --
--- TOC entry 4924 (class 0 OID 18860)
+-- TOC entry 4927 (class 0 OID 18860)
 -- Dependencies: 221
 -- Data for Name: negozi; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -780,11 +817,12 @@ COPY develop.negozi (id, orario_apertura, orario_chiusura, responsabile, manager
 01JTS11	08:00:00	17:00:00	Giorgio Rinaldi	1	t
 01JTS12	08:00:00	17:00:00	Francesca Moretti	1	t
 01JTS02	08:30:00	17:30:00	Luisa Bianchi	1	t
+01JTS01	08:30:00	17:30:00	Luisa Bianchi	1	t
 \.
 
 
 --
--- TOC entry 4934 (class 0 OID 19172)
+-- TOC entry 4937 (class 0 OID 19172)
 -- Dependencies: 233
 -- Data for Name: ordini; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -801,7 +839,7 @@ COPY develop.ordini (id, data_consegna, negozio, fornitore) FROM stdin;
 
 
 --
--- TOC entry 4928 (class 0 OID 18923)
+-- TOC entry 4931 (class 0 OID 18923)
 -- Dependencies: 225
 -- Data for Name: prodotti; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -816,7 +854,7 @@ P00005	Pomodori Pelati	Pomodori pelati in scatola, 400g
 
 
 --
--- TOC entry 4931 (class 0 OID 18976)
+-- TOC entry 4934 (class 0 OID 18976)
 -- Dependencies: 228
 -- Data for Name: prodotti_fattura; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -827,11 +865,24 @@ P00004	4	8
 P00004	5	30
 P00004	6	10
 P00004	7	10
+P00001	12	10
+P00002	12	10
+P00001	13	10
+P00002	13	10
+P00003	14	10
+P00001	15	5
+P00005	16	1
+P00005	17	2
+P00005	18	7
+P00005	19	10
+P00001	20	5
+P00002	20	10
+P00001	21	10
 \.
 
 
 --
--- TOC entry 4935 (class 0 OID 19195)
+-- TOC entry 4938 (class 0 OID 19195)
 -- Dependencies: 234
 -- Data for Name: prodotti_ordine; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -848,7 +899,7 @@ COPY develop.prodotti_ordine (quantita, ordine, prodotto) FROM stdin;
 
 
 --
--- TOC entry 4923 (class 0 OID 18855)
+-- TOC entry 4926 (class 0 OID 18855)
 -- Dependencies: 220
 -- Data for Name: punti_deposito; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -883,7 +934,7 @@ COPY develop.punti_deposito (id, indirizzo) FROM stdin;
 
 
 --
--- TOC entry 4937 (class 0 OID 19211)
+-- TOC entry 4940 (class 0 OID 19211)
 -- Dependencies: 236
 -- Data for Name: storico_ordini; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -894,7 +945,7 @@ COPY develop.storico_ordini (id, ordine_id, data_consegna, negozio_id, fornitore
 
 
 --
--- TOC entry 4932 (class 0 OID 19164)
+-- TOC entry 4935 (class 0 OID 19164)
 -- Dependencies: 231
 -- Data for Name: storico_tessere; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -905,18 +956,18 @@ SRABRS98C08F576W	3	01JTS02	2009-06-24
 
 
 --
--- TOC entry 4922 (class 0 OID 18844)
+-- TOC entry 4925 (class 0 OID 18844)
 -- Dependencies: 219
 -- Data for Name: tessere; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.tessere (punti, data_richiesta, proprietario, negozio_di_rilascio) FROM stdin;
-83	2009-06-24	SRABRS98C08F576W	01JTS02
+95	2009-06-24	SRABRS98C08F576W	01JTS02
 \.
 
 
 --
--- TOC entry 4919 (class 0 OID 18810)
+-- TOC entry 4922 (class 0 OID 18810)
 -- Dependencies: 216
 -- Data for Name: utenze; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -927,20 +978,21 @@ sara.gianni@gmail.com	$2y$10$saJehlmBIZDwWkhIM4ojoOTdTnxhxiVggbKkW2dkcNtNx3siW0r
 mario.brambilla@protonmail.com	$2y$10$/llMa72HAQBNJoKLiPlssuSVxcMgSBqegAPCuXXdOdnLxYdRH.4km
 sara.brusaferri@gmail.com	$2y$10$ym/fBAeUvT5PXDBX.8pdR.8vdKfZ6DDzYS9NoOjxzCvqI595k2KyW
 riccardo.nuzzo@gmail.com	$2y$10$bNqkjfJHRiELNjqckhKL9ee1p0ZV9M7Jae1SHnMQfOk7CWoW4M3X6
+carlo.sallusti@gmail.com	$2y$10$00tScRFM2FSt.8gDGxJoE.seKh7kZhG8cX8j0v0661Zy3LTpso6IW
 \.
 
 
 --
--- TOC entry 4951 (class 0 OID 0)
+-- TOC entry 4961 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: fatture_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
 
-SELECT pg_catalog.setval('develop.fatture_id_seq', 7, true);
+SELECT pg_catalog.setval('develop.fatture_id_seq', 21, true);
 
 
 --
--- TOC entry 4952 (class 0 OID 0)
+-- TOC entry 4962 (class 0 OID 0)
 -- Dependencies: 232
 -- Name: ordini_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
@@ -949,7 +1001,7 @@ SELECT pg_catalog.setval('develop.ordini_id_seq', 7, true);
 
 
 --
--- TOC entry 4953 (class 0 OID 0)
+-- TOC entry 4963 (class 0 OID 0)
 -- Dependencies: 235
 -- Name: storico_ordini_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
@@ -958,7 +1010,7 @@ SELECT pg_catalog.setval('develop.storico_ordini_id_seq', 1, true);
 
 
 --
--- TOC entry 4727 (class 2606 OID 18838)
+-- TOC entry 4728 (class 2606 OID 18838)
 -- Name: clienti cliente_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -967,7 +1019,7 @@ ALTER TABLE ONLY develop.clienti
 
 
 --
--- TOC entry 4745 (class 2606 OID 19028)
+-- TOC entry 4746 (class 2606 OID 19028)
 -- Name: costi costi_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -976,7 +1028,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4743 (class 2606 OID 19014)
+-- TOC entry 4744 (class 2606 OID 19014)
 -- Name: disponibilita disponibilita_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -985,7 +1037,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4739 (class 2606 OID 18917)
+-- TOC entry 4740 (class 2606 OID 18917)
 -- Name: fatture fatture_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -994,7 +1046,7 @@ ALTER TABLE ONLY develop.fatture
 
 
 --
--- TOC entry 4735 (class 2606 OID 19053)
+-- TOC entry 4736 (class 2606 OID 19053)
 -- Name: fornitori fornitore_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1003,7 +1055,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4737 (class 2606 OID 18886)
+-- TOC entry 4738 (class 2606 OID 18886)
 -- Name: fornitori fornitore_unique; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1012,7 +1064,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4733 (class 2606 OID 19065)
+-- TOC entry 4734 (class 2606 OID 19065)
 -- Name: negozi negozio_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1021,7 +1073,7 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4725 (class 2606 OID 18819)
+-- TOC entry 4726 (class 2606 OID 18819)
 -- Name: manager newtable_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1030,7 +1082,7 @@ ALTER TABLE ONLY develop.manager
 
 
 --
--- TOC entry 4749 (class 2606 OID 19179)
+-- TOC entry 4750 (class 2606 OID 19179)
 -- Name: ordini ordini_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1039,7 +1091,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4747 (class 2606 OID 19100)
+-- TOC entry 4748 (class 2606 OID 19100)
 -- Name: prodotti_fattura prodotti_fattura_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1048,7 +1100,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4751 (class 2606 OID 19199)
+-- TOC entry 4752 (class 2606 OID 19199)
 -- Name: prodotti_ordine prodotti_ordine_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1057,7 +1109,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4741 (class 2606 OID 19092)
+-- TOC entry 4742 (class 2606 OID 19092)
 -- Name: prodotti prodotti_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1066,7 +1118,7 @@ ALTER TABLE ONLY develop.prodotti
 
 
 --
--- TOC entry 4731 (class 2606 OID 19034)
+-- TOC entry 4732 (class 2606 OID 19034)
 -- Name: punti_deposito punto_deposito_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1075,7 +1127,7 @@ ALTER TABLE ONLY develop.punti_deposito
 
 
 --
--- TOC entry 4753 (class 2606 OID 19217)
+-- TOC entry 4754 (class 2606 OID 19217)
 -- Name: storico_ordini storico_ordini_pkey; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1084,7 +1136,7 @@ ALTER TABLE ONLY develop.storico_ordini
 
 
 --
--- TOC entry 4729 (class 2606 OID 18849)
+-- TOC entry 4730 (class 2606 OID 18849)
 -- Name: tessere tessera_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1093,7 +1145,7 @@ ALTER TABLE ONLY develop.tessere
 
 
 --
--- TOC entry 4723 (class 2606 OID 18814)
+-- TOC entry 4724 (class 2606 OID 18814)
 -- Name: utenze utenze_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1102,7 +1154,23 @@ ALTER TABLE ONLY develop.utenze
 
 
 --
--- TOC entry 4774 (class 2620 OID 19219)
+-- TOC entry 4774 (class 2620 OID 19226)
+-- Name: clienti check_login_exclusive_clienti; Type: TRIGGER; Schema: develop; Owner: postgres
+--
+
+CREATE TRIGGER check_login_exclusive_clienti BEFORE INSERT OR UPDATE ON develop.clienti FOR EACH ROW EXECUTE FUNCTION develop.check_login_exclusivity();
+
+
+--
+-- TOC entry 4773 (class 2620 OID 19227)
+-- Name: manager check_login_exclusive_manager; Type: TRIGGER; Schema: develop; Owner: postgres
+--
+
+CREATE TRIGGER check_login_exclusive_manager BEFORE INSERT OR UPDATE ON develop.manager FOR EACH ROW EXECUTE FUNCTION develop.check_login_exclusivity();
+
+
+--
+-- TOC entry 4777 (class 2620 OID 19219)
 -- Name: ordini trg_storico_ordini; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1110,7 +1178,7 @@ CREATE TRIGGER trg_storico_ordini AFTER INSERT ON develop.ordini FOR EACH ROW EX
 
 
 --
--- TOC entry 4773 (class 2620 OID 19158)
+-- TOC entry 4776 (class 2620 OID 19158)
 -- Name: fatture trigger_aggiorna_punti; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1118,7 +1186,7 @@ CREATE TRIGGER trigger_aggiorna_punti AFTER INSERT ON develop.fatture FOR EACH R
 
 
 --
--- TOC entry 4772 (class 2620 OID 19222)
+-- TOC entry 4775 (class 2620 OID 19222)
 -- Name: negozi trigger_salva_storico_tessere; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1126,7 +1194,7 @@ CREATE TRIGGER trigger_salva_storico_tessere BEFORE UPDATE OF attivo ON develop.
 
 
 --
--- TOC entry 4755 (class 2606 OID 18839)
+-- TOC entry 4756 (class 2606 OID 18839)
 -- Name: clienti cliente_utenze_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1135,7 +1203,7 @@ ALTER TABLE ONLY develop.clienti
 
 
 --
--- TOC entry 4764 (class 2606 OID 19146)
+-- TOC entry 4765 (class 2606 OID 19146)
 -- Name: costi costi_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1144,7 +1212,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4765 (class 2606 OID 19141)
+-- TOC entry 4766 (class 2606 OID 19141)
 -- Name: costi costi_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1153,7 +1221,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4762 (class 2606 OID 19136)
+-- TOC entry 4763 (class 2606 OID 19136)
 -- Name: disponibilita disponibilita_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1162,7 +1230,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4763 (class 2606 OID 19131)
+-- TOC entry 4764 (class 2606 OID 19131)
 -- Name: disponibilita disponibilita_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1171,7 +1239,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4761 (class 2606 OID 18918)
+-- TOC entry 4762 (class 2606 OID 18918)
 -- Name: fatture fatture_cliente_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1180,7 +1248,7 @@ ALTER TABLE ONLY develop.fatture
 
 
 --
--- TOC entry 4760 (class 2606 OID 19059)
+-- TOC entry 4761 (class 2606 OID 19059)
 -- Name: fornitori fornitori_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1189,7 +1257,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4758 (class 2606 OID 19070)
+-- TOC entry 4759 (class 2606 OID 19070)
 -- Name: negozi negozi_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1198,7 +1266,7 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4759 (class 2606 OID 18875)
+-- TOC entry 4760 (class 2606 OID 18875)
 -- Name: negozi negozio_manager_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1207,7 +1275,7 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4768 (class 2606 OID 19180)
+-- TOC entry 4769 (class 2606 OID 19180)
 -- Name: ordini ordini_fornitori_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1216,7 +1284,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4769 (class 2606 OID 19185)
+-- TOC entry 4770 (class 2606 OID 19185)
 -- Name: ordini ordini_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1225,7 +1293,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4766 (class 2606 OID 18981)
+-- TOC entry 4767 (class 2606 OID 18981)
 -- Name: prodotti_fattura prodotti_fattura_fatture_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1234,7 +1302,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4767 (class 2606 OID 19105)
+-- TOC entry 4768 (class 2606 OID 19105)
 -- Name: prodotti_fattura prodotti_fattura_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1243,7 +1311,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4770 (class 2606 OID 19200)
+-- TOC entry 4771 (class 2606 OID 19200)
 -- Name: prodotti_ordine prodotti_ordine_ordini_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1252,7 +1320,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4771 (class 2606 OID 19205)
+-- TOC entry 4772 (class 2606 OID 19205)
 -- Name: prodotti_ordine prodotti_ordine_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1261,7 +1329,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4756 (class 2606 OID 18850)
+-- TOC entry 4757 (class 2606 OID 18850)
 -- Name: tessere tessera_cliente_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1270,7 +1338,7 @@ ALTER TABLE ONLY develop.tessere
 
 
 --
--- TOC entry 4757 (class 2606 OID 19076)
+-- TOC entry 4758 (class 2606 OID 19076)
 -- Name: tessere tessere_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1279,7 +1347,7 @@ ALTER TABLE ONLY develop.tessere
 
 
 --
--- TOC entry 4754 (class 2606 OID 18820)
+-- TOC entry 4755 (class 2606 OID 18820)
 -- Name: manager utenze_manager_utenze_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1288,7 +1356,7 @@ ALTER TABLE ONLY develop.manager
 
 
 --
--- TOC entry 4943 (class 0 OID 0)
+-- TOC entry 4946 (class 0 OID 0)
 -- Dependencies: 6
 -- Name: SCHEMA develop; Type: ACL; Schema: -; Owner: postgres
 --
@@ -1297,16 +1365,52 @@ GRANT USAGE ON SCHEMA develop TO webapp;
 
 
 --
--- TOC entry 4944 (class 0 OID 0)
+-- TOC entry 4947 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: TABLE clienti; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT,INSERT ON TABLE develop.clienti TO webapp;
+GRANT SELECT,INSERT,UPDATE ON TABLE develop.clienti TO webapp;
 
 
 --
--- TOC entry 4946 (class 0 OID 0)
+-- TOC entry 4948 (class 0 OID 0)
+-- Dependencies: 227
+-- Name: TABLE costi; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT ON TABLE develop.costi TO webapp;
+
+
+--
+-- TOC entry 4949 (class 0 OID 0)
+-- Dependencies: 226
+-- Name: TABLE disponibilita; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,UPDATE ON TABLE develop.disponibilita TO webapp;
+
+
+--
+-- TOC entry 4950 (class 0 OID 0)
+-- Dependencies: 224
+-- Name: TABLE fatture; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE develop.fatture TO webapp;
+
+
+--
+-- TOC entry 4952 (class 0 OID 0)
+-- Dependencies: 223
+-- Name: SEQUENCE fatture_id_seq; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,USAGE ON SEQUENCE develop.fatture_id_seq TO webapp;
+
+
+--
+-- TOC entry 4953 (class 0 OID 0)
 -- Dependencies: 217
 -- Name: TABLE manager; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1315,16 +1419,43 @@ GRANT SELECT ON TABLE develop.manager TO webapp;
 
 
 --
--- TOC entry 4949 (class 0 OID 0)
+-- TOC entry 4954 (class 0 OID 0)
+-- Dependencies: 221
+-- Name: TABLE negozi; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT ON TABLE develop.negozi TO webapp;
+
+
+--
+-- TOC entry 4956 (class 0 OID 0)
+-- Dependencies: 225
+-- Name: TABLE prodotti; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT ON TABLE develop.prodotti TO webapp;
+
+
+--
+-- TOC entry 4957 (class 0 OID 0)
+-- Dependencies: 228
+-- Name: TABLE prodotti_fattura; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE develop.prodotti_fattura TO webapp;
+
+
+--
+-- TOC entry 4959 (class 0 OID 0)
 -- Dependencies: 219
 -- Name: TABLE tessere; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT ON TABLE develop.tessere TO webapp;
+GRANT SELECT,UPDATE ON TABLE develop.tessere TO webapp;
 
 
 --
--- TOC entry 4950 (class 0 OID 0)
+-- TOC entry 4960 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: TABLE utenze; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1332,7 +1463,7 @@ GRANT SELECT ON TABLE develop.tessere TO webapp;
 GRANT SELECT,INSERT,UPDATE ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-21 17:00:51
+-- Completed on 2025-06-21 22:34:21
 
 --
 -- PostgreSQL database dump complete
