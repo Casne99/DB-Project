@@ -18,6 +18,7 @@ if (empty($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'manager') {
 
     <ul>
         <li><a href="add_user.php">Aggiungi nuovo cliente</a></li>
+        <li><a href="modifica_cliente.php">Modifica cliente esistente</a></li>
     </ul>
 
     <p><a href="dashboard.php">Torna alla Dashboard</a></p>

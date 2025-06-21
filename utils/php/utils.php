@@ -76,6 +76,52 @@ function add_user(PDO $pdo, string $email, string $password, string $nome, strin
     }
 }
 
+function update_cliente(PDO $pdo, string $email, string $nome, string $cognome, string $codiceFiscale, string $genere): bool
+{
+    $logFile = __DIR__ . '/app_debug.log';
+    $log = fn($message) => error_log(date('[Y-m-d H:i:s] ') . $message . PHP_EOL, 3, $logFile);
+
+    $log("Inizio funzione update_cliente per: $email");
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->exec("SET search_path = develop");
+        $log("Impostato search_path a develop");
+
+        // Verifica che l’utente sia un cliente
+        $stmt = $pdo->prepare("SELECT 1 FROM develop.clienti WHERE login = :email");
+        $stmt->execute(['email' => $email]);
+        if (!$stmt->fetch()) {
+            $log("Nessun cliente trovato con login: $email");
+            throw new Exception("Utente non è un cliente.");
+        }
+
+        // Aggiorna i dati del cliente
+        $stmt = $pdo->prepare("
+            UPDATE develop.clienti
+            SET nome = :nome, cognome = :cognome, codice_fiscale = :cf, genere = :genere
+            WHERE login = :email
+        ");
+        $stmt->execute([
+            'email' => $email,
+            'nome' => $nome,
+            'cognome' => $cognome,
+            'cf' => $codiceFiscale,
+            'genere' => $genere
+        ]);
+
+        $pdo->commit();
+        $log("Dati cliente aggiornati con successo per: $email");
+        return true;
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $log("ERRORE nella funzione update_cliente: " . $e->getMessage());
+        return false;
+    }
+}
+
+
 
 
 

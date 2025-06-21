@@ -22,18 +22,24 @@ $nome_cliente = null;
 $cognome_cliente = null;
 $genere_cliente = null;
 
-if ($user_role === 'cliente') {
-    try {
+try {
+    if ($user_role === 'cliente') {
         $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome, genere FROM clienti WHERE login = :email');
         $stmt->execute([':email' => $user_email]);
-        $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+        $utente = $stmt->fetch(PDO::FETCH_ASSOC);
+    } elseif ($user_role === 'manager') {
+        $stmt = $pdo->prepare('SELECT nome, cognome, genere FROM manager WHERE login = :email');
+        $stmt->execute([':email' => $user_email]);
+        $utente = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-        if ($cliente && isset($cliente['codice_fiscale'])) {
-            $cf = $cliente['codice_fiscale'];
-            $nome_cliente = $cliente['nome'];
-            $cognome_cliente = $cliente['cognome'];
-            $genere_cliente = $cliente['genere'] ?? null;
+    if (!empty($utente)) {
+        $nome_cliente = $utente['nome'] ?? null;
+        $cognome_cliente = $utente['cognome'] ?? null;
+        $genere_cliente = $utente['genere'] ?? null;
 
+        if ($user_role === 'cliente' && isset($utente['codice_fiscale'])) {
+            $cf = $utente['codice_fiscale'];
             $stmt = $pdo->prepare('SELECT punti FROM tessere WHERE proprietario = :cf');
             $stmt->execute([':cf' => $cf]);
             $tessera = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -42,9 +48,9 @@ if ($user_role === 'cliente') {
                 $punti = (int)$tessera['punti'];
             }
         }
-    } catch (PDOException $e) {
-        die("Errore durante il recupero dei dati cliente: " . htmlspecialchars($e->getMessage()));
     }
+} catch (PDOException $e) {
+    die("Errore durante il recupero dei dati utente: " . htmlspecialchars($e->getMessage()));
 }
 ?>
 
@@ -57,13 +63,13 @@ if ($user_role === 'cliente') {
 <body>
     <h1>
         <?php
-            if ($user_role === 'cliente' && $genere_cliente === 'F') {
+            if ($genere_cliente === 'F') {
                 echo 'Benvenuta,';
             } else {
                 echo 'Benvenuto,';
             }
         ?>
-        <?php if ($user_role === 'cliente' && $nome_cliente && $cognome_cliente): ?>
+        <?php if ($nome_cliente && $cognome_cliente): ?>
             <?= ' ' . htmlspecialchars($nome_cliente) . ' ' . htmlspecialchars($cognome_cliente) ?>
         <?php else: ?>
             <?= ' ' . htmlspecialchars($user_email) ?>
@@ -71,10 +77,12 @@ if ($user_role === 'cliente') {
         [<?= htmlspecialchars($user_role) ?>]
     </h1>
 
-    <?php if ($tessera !== false && isset($tessera['punti'])): ?>
-        <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
-    <?php else: ?>
-        <p>Non hai richiesto una tessera fedeltà.</p>
+    <?php if ($user_role === 'cliente'): ?>
+        <?php if ($tessera !== false && isset($tessera['punti'])): ?>
+            <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
+        <?php else: ?>
+            <p>Non hai richiesto una tessera fedeltà.</p>
+        <?php endif; ?>
     <?php endif; ?>
 
     <ul>
