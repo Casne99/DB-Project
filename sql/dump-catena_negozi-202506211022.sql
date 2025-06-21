@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-21 09:44:07
+-- Started on 2025-06-21 10:22:11
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -119,7 +119,8 @@ CREATE TABLE develop.clienti (
     nome character varying(100) NOT NULL,
     login character varying(60) NOT NULL,
     codice_fiscale character(16) NOT NULL,
-    cognome character varying(100)
+    cognome character varying(100),
+    genere character(1) NOT NULL
 );
 
 
@@ -216,7 +217,9 @@ ALTER TABLE develop.fornitori OWNER TO postgres;
 CREATE TABLE develop.manager (
     id integer NOT NULL,
     nome character varying(100) NOT NULL,
-    login character varying(60) NOT NULL
+    login character varying(60) NOT NULL,
+    cognome character varying(100),
+    genere character(1) NOT NULL
 );
 
 
@@ -412,10 +415,11 @@ ALTER TABLE ONLY develop.ordini ALTER COLUMN id SET DEFAULT nextval('develop.ord
 -- Data for Name: clienti; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
-COPY develop.clienti (nome, login, codice_fiscale, cognome) FROM stdin;
-Claudio	claudio.gennari@gmail.com	CLDGNR99C08F576W	Gennari
-Sara	sara.brusaferri@gmail.com	SRABRS98C08F576W	Brusaferri
-Sara	sara.gianni@gmail.com	GNNSRA95C55F205Z	Gianni
+COPY develop.clienti (nome, login, codice_fiscale, cognome, genere) FROM stdin;
+Claudio	claudio.gennari@gmail.com	CLDGNR99C08F576W	Gennari	M
+Sara	sara.brusaferri@gmail.com	SRABRS98C08F576W	Brusaferri	F
+Sara	sara.gianni@gmail.com	GNNSRA95C55F205Z	Gianni	F
+Riccardo	riccardo.nuzzo@gmail.com	NZZRCR90C08H501U	Nuzzo	M
 \.
 
 
@@ -477,8 +481,8 @@ COPY develop.fornitori (id, partita_iva) FROM stdin;
 -- Data for Name: manager; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
-COPY develop.manager (id, nome, login) FROM stdin;
-1	Mario Brambilla	mario.brambilla@protonmail.com
+COPY develop.manager (id, nome, login, cognome, genere) FROM stdin;
+1	Mario	mario.brambilla@protonmail.com	Brambilla	M
 \.
 
 
@@ -612,6 +616,7 @@ claudio.gennari@gmail.com	$2b$12$VC3rIRGLGphbSasHU0AZEOU3VnZB3mTt2xKRDIeQwVwXy/.
 sara.gianni@gmail.com	$2y$10$saJehlmBIZDwWkhIM4ojoOTdTnxhxiVggbKkW2dkcNtNx3siW0r9e
 mario.brambilla@protonmail.com	$2y$10$/llMa72HAQBNJoKLiPlssuSVxcMgSBqegAPCuXXdOdnLxYdRH.4km
 sara.brusaferri@gmail.com	$2y$10$ym/fBAeUvT5PXDBX.8pdR.8vdKfZ6DDzYS9NoOjxzCvqI595k2KyW
+riccardo.nuzzo@gmail.com	$2y$10$bNqkjfJHRiELNjqckhKL9ee1p0ZV9M7Jae1SHnMQfOk7CWoW4M3X6
 \.
 
 
@@ -991,7 +996,7 @@ GRANT SELECT ON TABLE develop.tessere TO webapp;
 GRANT SELECT,INSERT,UPDATE ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-21 09:44:07
+-- Completed on 2025-06-21 10:22:11
 
 --
 -- PostgreSQL database dump complete
