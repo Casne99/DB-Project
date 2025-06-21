@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-21 16:33:41
+-- Started on 2025-06-21 17:00:51
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -126,7 +126,7 @@ BEGIN
 		SELECT c.prezzo INTO v_prezzo_unitario
 		FROM develop.costi c
 		JOIN develop.negozi n ON c.deposito = n.id
-		WHERE c.deposito = p_deposito AND c.prodotto = v_prodotto;
+		WHERE c.deposito = p_deposito AND c.prodotto = v_prodotto AND n.attivo;
 
 
         IF v_prezzo_unitario IS NULL THEN
@@ -1332,7 +1332,7 @@ GRANT SELECT ON TABLE develop.tessere TO webapp;
 GRANT SELECT,INSERT,UPDATE ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-21 16:33:41
+-- Completed on 2025-06-21 17:00:51
 
 --
 -- PostgreSQL database dump complete
