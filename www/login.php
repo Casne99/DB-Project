@@ -31,6 +31,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $_SESSION['user_role'] = $ruolo->value;
 
+            if ($ruolo->value === 'manager') {
+                $stmtId = $pdo->prepare("SELECT id FROM develop.manager WHERE login = :login");
+                $stmtId->execute([':login' => $email]);
+                $managerData = $stmtId->fetch(PDO::FETCH_ASSOC);
+                if ($managerData && isset($managerData['id'])) {
+                    $_SESSION['user_id'] = $managerData['id'];
+                } else {
+                    session_destroy();
+                    die("Manager non trovato.");
+                }
+            }
+
             header('Location: dashboard.php');
             exit;
         } else {
