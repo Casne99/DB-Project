@@ -7,7 +7,8 @@ return [
     'manager' => [
         ['label' => 'Gestione clienti', 'link' => 'gestione_clienti.php'],
         ['label' => 'Gestione negozi/fornitori', 'link' => 'report.php'],
-        ['label' => 'Gestione prodotti', 'link' => 'prodotti.php']
+        ['label' => 'Gestione prodotti', 'link' => 'prodotti.php'],
+        ['label' => 'Ordina prodotti', 'link' => 'rifornisci.php']
     ],
     'default' => [
         ['label' => 'Ruolo non riconosciuto', 'link' => '#'],
