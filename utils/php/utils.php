@@ -76,6 +76,48 @@ function add_user(PDO $pdo, string $email, string $password, string $nome, strin
     }
 }
 
+function aggiungi_prodotto(PDO $pdo, string $id, string $nome, string $descrizione): bool
+{
+    $logFile = __DIR__ . '/app_debug.log';
+    $log = fn($message) => error_log(date('[Y-m-d H:i:s] ') . $message . PHP_EOL, 3, $logFile);
+
+    $log("Inizio funzione add_product con id: $id");
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->exec("SET search_path = develop");
+        $log("Impostato search_path a develop");
+
+        $stmt = $pdo->prepare("SELECT 1 FROM develop.prodotti WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        if ($stmt->fetch()) {
+            $log("Prodotto già esistente con ID: $id");
+            throw new Exception("Prodotto già esistente.");
+        }
+
+        $stmt = $pdo->prepare("
+            INSERT INTO develop.prodotti (id, nome, descrizione)
+            VALUES (:id, :nome, :descrizione)
+        ");
+        $stmt->execute([
+            'id' => $id,
+            'nome' => $nome,
+            'descrizione' => $descrizione
+        ]);
+        $log("Inserito in develop.prodotti: $id - $nome");
+
+        $pdo->commit();
+        $log("Transazione completata con successo");
+        return true;
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $log("ERRORE: Transazione annullata - " . $e->getMessage());
+        return false;
+    }
+}
+
+
 function update_cliente(PDO $pdo, string $email, string $nome, string $cognome, string $codiceFiscale, string $genere): bool
 {
     $logFile = __DIR__ . '/app_debug.log';
