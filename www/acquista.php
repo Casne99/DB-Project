@@ -16,8 +16,12 @@ $user_role = $_SESSION['user_role'];
 $deposito_selezionato = $_GET['deposito'] ?? null;
 $prodotti = [];
 $negozi = [];
+$punti = 0;
+$sconti_disponibili = [];
 
 try {
+
+    // Recupera i negozi attivi
     $stmt = $pdo->prepare("
         SELECT id, orario_apertura, orario_chiusura
         FROM negozi
@@ -27,6 +31,27 @@ try {
     $stmt->execute();
     $negozi = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Recupera il codice fiscale dell'utente tramite il login (user_email)
+    $stmtCF = $pdo->prepare("SELECT codice_fiscale FROM develop.clienti WHERE login = :login");
+    $stmtCF->execute([':login' => $user_email]);
+    $codice_fiscale = $stmtCF->fetchColumn();
+
+    if (!$codice_fiscale) {
+        throw new Exception("Codice fiscale non trovato per l'utente.");
+    }
+
+    // Recupera i punti del cliente usando il codice fiscale
+    $stmtPunti = $pdo->prepare("SELECT punti FROM develop.tessere WHERE proprietario = :cf");
+    $stmtPunti->execute([':cf' => $codice_fiscale]);
+    $punti = (int) $stmtPunti->fetchColumn();
+
+    // Determina gli sconti disponibili
+    $sconti_disponibili = [];
+    if ($punti >= 100) $sconti_disponibili[] = 5;
+    if ($punti >= 200) $sconti_disponibili[] = 15;
+    if ($punti >= 300) $sconti_disponibili[] = 30;
+
+    // Recupera i prodotti se è stato selezionato un deposito
     if ($deposito_selezionato) {
         $stmtProd = $pdo->prepare("
             SELECT p.id, p.nome, d.quantita
@@ -106,12 +131,25 @@ try {
                     </tbody>
                 </table>
                 <br>
+
+                <?php if (!empty($sconti_disponibili)): ?>
+                    <label for="sconto">Applica uno sconto (opzionale):</label>
+                    <select name="sconto" id="sconto">
+                        <option value="">-- Nessuno --</option>
+                        <?php foreach ($sconti_disponibili as $sconto): ?>
+                            <option value="<?= $sconto ?>">
+                                <?= $sconto ?>% (<?= $sconto === 5 ? "100" : ($sconto === 15 ? "200" : "300") ?> punti)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <br><br>
+                <?php endif; ?>
+
                 <button type="submit">Invia Ordine</button>
             </form>
         <?php endif; ?>
     <?php endif; ?>
 
-    <?php echo '<p><a href="dashboard.php">Torna alla dashboard</a></p>'; ?>
-
+    <p><a href="dashboard.php">Torna alla dashboard</a></p>
 </body>
 </html>
