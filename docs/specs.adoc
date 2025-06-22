@@ -1,69 +1,53 @@
 = Documento di analisi
 
-== Attori principali
+== Luca Casnedi (Matricola 931856)
 
-Con una analisi preliminare si può stilare un elenco con i principali attori ed i loro attributi, in *grassetto*
-viene indicato l'identificativo dell'attore, in _italic_ eventuali chiavi esterne.
-Eventuali attributi opzionali saranno segnalati con la dicitura [opzionale] accanto all'attributo stesso.
+=== Premesse
 
+Questa è la documentazione del progetto del corso di *Basi di Dati* per l'anno accademico 2024/2025.
+L'ambito è quello di una catena di *negozi* presso i quali sono disponibili in vendita *prodotti*
+di un tipo non specificato, ogni negozio può vendere prodotti ai *clienti* che ne fanno richiesta. +
+I clienti possono fare *acquisti*, richiedere una *tessera fedeltà* presso un negozio per accumulare punti e sbloccare sconti,
+possono inoltre visualizzare le *fatture* relative ai propri acquisti. +
+I manager possono gestire i negozi inserendo prodotti e decidendo i prezzi dei prodotti nei vari negozi. +
+I manager possono inoltre depositare ordini presso fornitori per aumentare la disponibilità dei prodotti nei negozi dove questi sono in esaurimento. +
+Sia manager che clienti devono poter cambiare la propria password, i manager possono anche creare utenze per nuovi clienti. +
 
-* Negozio
-**  *ID*
-**  Responsabile
-**  Orari apertura
-**  Indirizzo
+=== Attori principali e relazioni
 
+In questa sezione esaminerò le scelte fatte per la rappresentazione di questo dominio, avendo come punto di riferimento lo *schema ER* prodotto: +
 
-* Prodotto
-** *ID*
-** Nome
-** Descrizione
-
-
-* Fornitore
-** *P.IVA*
-** Indirizzo
+image::diagrams/schema_er_v1.png[]
 
 
-* Ordine
-** *ID*
-** Data di consegna
+Nello schema non ristrutturato allegato si possono individuare i principali attori del dominio e le loro relazioni. +
+Andando da sinistra verso destra possiamo vedere prima di tutto la tabella *Utenza* utilizzata per registrare le credenziali di uenti e manager.
+Le credenziali sono chiaramente associate ad un solo utente (sia esso cliente o manager), e il controllo è forzato lato database
+con un trigger che esamineremo. +
+Tra *Negozio* e *Manager* la relazione è di tipo _uno-a-molti_, infatti un negozio e gestito da un solo manager
+ma un manager può gestire più negozi.  +
+Un negozio ha chiaramente degli orari, rilascia zero, una o più tessere ai clienti
+(tessere che sono utilizzabili anche presso negozi diversi da quello di rilascio, sono infatti associate
+alla catena). +
+Un negozio può, inoltre, avere zero, uno o più ordini associati.  +
+Il legame tra *Negozio* e *Fornitore* sta negli ordini, un ordine è infatti inviato da un fornitore
+ad un negozio e contiene un *Prodotto*.  +
 
-* Cliente
-** *Codice Fiscale*
-** Nome
+NOTE: L'associazione di un ordine a un solo prodotto è giustificata dal requisito di ottimizzare il prezzo per singolo prodotto.  +
 
-* Tessera
-** *_Assegnatario_*
-** Data di richiesta
-** Negozio di rilascio
-** Saldo punti
+I prodotti sono inoltre associati alle fatture dei clienti. +
+Esiste una evidente somiglianza tra le entità *Fornitore* e *Negozio*, queste entità sono chiaramente
+dei contenitori di prodotti, disponibili in una certa quantità e acquistabili ad un certo prezzo, aventi un indirizzo.  +
+Queste motivazioni mi hanno spinto a creare un'entità superiore *Punto Deposito*, radice di una gerarchia di generalizzazione.  +
+Al suo livello è definito l'attributo indirizzo e le relazioni che indicano la disponibilità dei prodotti e il loro
+costo presso i vari depositi sono appunto legate a questa entità superiore.  +
 
-* Fattura
-** *ID*
-** Data di acquisto
-** Elenco dei prodotti acquistati (con prezzo)
-** Sconto percentuale applicato [opzionale]
-** Totale pagato
+A partire da questo schema è stato generato lo schema ristrutturato dove la gerarchia di generalizzazione appena discussa è stata
+trasformata mantenendo tutte le entità che la compongono, e utilizzando la relazione *IS_A*. Sono stati inoltre ristrutturati gli attributi composti,
+ad esempio _Orari_ dell'entità *Negozio*:
+
+image::diagrams/schema_er_v2.png[]
 
 
-Note importanti:
-
-* Lo stesso prodotto può essere disponibile in negozi diversi con prezzi diversi
-* Un fornitore  può fornire diversi prodotti e lo stesso prodotto può essere fornito da fornitori diversi
-* Occorre tenere traccia della disponibilità dei prodotti presso ciascun fornitore (in numero di pezzi)
-* Ogni cliente può richiedere al più una tessera fedeltà, e la tessera viene rilasciata da uno dei negozi (questo mi suggerisce presenza di entità debole)
-
-== Relazioni
-
-Il legame tra i vari prodotti ed i negozi è chiaro: un prodotto è disponibile in zero, uno o più negozi. +
-In ogni negozio il prodotto ha un certo prezzo (assumiamo prezzi in euro?).  +
-Questo suggerisce una relazione molti a molti tra l'entità negozio e l'entità prodotto, dove il prezzo è attributo non opzionale della relazione.  +
-
-In maniera analoga, esiste un legame tra prodotto e fornitore che identifica la disponibilità del prodotto presso il fornitore, dove la disponibilità in pezzi è attributo della relazione.
-Anche in questo caso parliamo di relazione molti a molti.
-
-Il fatto che ogni cliente possa richiedere al più una tessera permette di trattare quest'ultima come entità debole rispetto al cliente, l'indetificativo
-della eventuale tessera di un cliente è esattamente l'identificativo del cliente che la possiede.
 
 
