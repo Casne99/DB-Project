@@ -11,13 +11,19 @@ $pdo->exec("SET search_path = develop");
 $msg = '';
 
 try {
-    // Carica negozi attivi
     $stmtN = $pdo->query("SELECT id FROM negozi WHERE attivo = true ORDER BY id");
     $negozi = $stmtN->fetchAll(PDO::FETCH_ASSOC);
 
-    // Carica prodotti esistenti
     $stmtP = $pdo->query("SELECT id, nome FROM prodotti ORDER BY id");
     $prodotti = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmtPrezzi = $pdo->query("
+        SELECT c.deposito, c.prodotto, p.nome, c.prezzo
+        FROM costi c
+        JOIN prodotti p ON c.prodotto = p.id
+        ORDER BY c.deposito, c.prodotto
+    ");
+    $prezzi = $stmtPrezzi->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Errore database: " . htmlspecialchars($e->getMessage()));
 }
@@ -26,7 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (isset($_POST['azione'])) {
             if ($_POST['azione'] === 'aggiungi_prodotto') {
-                // Valida campi aggiunta prodotto
                 $id = trim($_POST['id'] ?? '');
                 $nome = trim($_POST['nome'] ?? '');
                 $descrizione = trim($_POST['descrizione'] ?? '');
@@ -49,7 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = "Prodotto aggiunto con successo.";
 
             } elseif ($_POST['azione'] === 'imposta_prezzo') {
-                // Valida campi associazione prezzo
                 $id_negozio = $_POST['id_negozio'] ?? '';
                 $id_prodotto = $_POST['id_prodotto'] ?? '';
                 $prezzo = $_POST['prezzo'] ?? '';
@@ -62,9 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Il prezzo deve essere un numero positivo.");
                 }
 
-                // Inserisce o aggiorna prezzo nella tabella prezzi_prodotto (devi avere questa tabella)
                 $stmt = $pdo->prepare("
-                    INSERT INTO develop.costi (deposito, prodotto, prezzo)
+                    INSERT INTO costi (deposito, prodotto, prezzo)
                     VALUES (:deposito, :prodotto, :prezzo)
                     ON CONFLICT (deposito, prodotto) DO UPDATE SET prezzo = EXCLUDED.prezzo
                 ");
@@ -73,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':prodotto' => $id_prodotto,
                     ':prezzo' => $prezzo
                 ]);
-
 
                 $msg = "Prezzo impostato con successo.";
             }
@@ -87,68 +89,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<title>Aggiungi prodotto e imposta prezzo</title>
-<style>
-    body {
-        font-family: Arial, sans-serif;
-    }
-    .container {
-        display: flex;
-        gap: 40px;
-        margin-top: 20px;
-    }
-    form {
-        border: 1px solid #ccc;
-        padding: 15px;
-        border-radius: 5px;
-        width: 350px;
-        box-sizing: border-box;
-    }
-    form h2 {
-        margin-top: 0;
-        margin-bottom: 15px;
-    }
-    label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: bold;
-    }
-    input[type="text"],
-    input[type="number"],
-    select,
-    textarea {
-        width: 100%;
-        padding: 6px;
-        margin-bottom: 12px;
-        box-sizing: border-box;
-        border: 1px solid #aaa;
-        border-radius: 3px;
-        font-size: 14px;
-        resize: vertical;
-    }
-    button {
-        padding: 8px 16px;
-        background-color: #2e6da4;
-        color: white;
-        border: none;
-        border-radius: 3px;
-        cursor: pointer;
-        font-size: 15px;
-    }
-    button:hover {
-        background-color: #204d74;
-    }
-    .message {
-        margin-top: 15px;
-        padding: 10px;
-        border-radius: 4px;
-        background-color: #e7f3fe;
-        border: 1px solid #b3d7ff;
-        color: #31708f;
-        max-width: 740px;
-    }
-</style>
+    <meta charset="UTF-8">
+    <title>Gestione Prodotti e Prezzi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin-top: 15px;
+        }
+        .container {
+            display: flex;
+            gap: 40px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        form {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+            width: 350px;
+            box-sizing: border-box;
+        }
+        form h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            border: 1px solid #aaa;
+            border-radius: 3px;
+            font-size: 14px;
+            resize: vertical;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #2e6da4;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button:hover {
+            background-color: #204d74;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #e7f3fe;
+            border: 1px solid #b3d7ff;
+            color: #31708f;
+            max-width: 1100px;
+        }
+        .tabella-prezzi-container {
+            width: 400px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding-right: 10px;
+            padding-left: 10px;
+            padding-bottom: 10px;
+        }
+        .tabella-prezzi {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .tabella-prezzi th,
+        .tabella-prezzi td {
+            border: 1px solid #aaa;
+            padding: 8px;
+            text-align: left;
+        }
+        .tabella-prezzi th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body>
 <h1>Gestione Prodotti e Prezzi</h1>
@@ -158,6 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
 <div class="container">
+    <!-- Form aggiunta prodotto -->
     <form method="POST" novalidate>
         <h2>Aggiungi Nuovo Prodotto</h2>
         <input type="hidden" name="azione" value="aggiungi_prodotto">
@@ -202,6 +235,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <button type="submit">Imposta prezzo</button>
     </form>
+
+    <!-- Tabella prezzi attuali -->
+    <div class="tabella-prezzi-container">
+        <table class="tabella-prezzi">
+            <thead>
+                <tr>
+                    <th>Negozio</th>
+                    <th>ID prodotto</th>
+                    <th>Nome</th>
+                    <th>Prezzo (€)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($prezzi as $riga): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($riga['deposito']) ?></td>
+                        <td><?= htmlspecialchars($riga['prodotto']) ?></td>
+                        <td><?= htmlspecialchars($riga['nome']) ?></td>
+                        <td><?= number_format($riga['prezzo'], 2, ',', '') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <p><a href="prodotti.php">Torna alla gestione prodotti</a></p>
