@@ -6,21 +6,74 @@ if (empty($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'manager') {
 }
 
 require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/../utils/php/utils.php';
+$pdo->exec("SET search_path = develop");
 
-$id = strtoupper(trim($_POST['id'] ?? ''));
-$nome = trim($_POST['nome'] ?? '');
-$descrizione = trim($_POST['descrizione'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = $_POST['id'] ?? '';
+    $nome = $_POST['nome'] ?? '';
+    $descrizione = $_POST['descrizione'] ?? '';
+    $prezzi = $_POST['prezzi'] ?? [];
 
-if (empty($id) || empty($nome) || empty($descrizione)) {
-    header('Location: aggiungi_prodotto.php?error=1');
-    exit;
-}
+    $id = trim($id);
+    $nome = trim($nome);
+    $descrizione = trim($descrizione);
 
-if (aggiungi_prodotto($pdo, $id, $nome, $descrizione)) {
-    header('Location: aggiungi_prodotto.php?success=1');
-    exit;
+    if (strlen($id) !== 7) {
+        header('Location: aggiungi_prodotto.php?error=1');
+        exit;
+    }
+
+    if ($id === '' || $nome === '' || $descrizione === '') {
+        header('Location: aggiungi_prodotto.php?error=1');
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $stmtProd = $pdo->prepare("
+            INSERT INTO prodotti (id, nome, descrizione)
+            VALUES (:id, :nome, :descrizione)
+        ");
+        $stmtProd->execute([
+            ':id' => $id,
+            ':nome' => $nome,
+            ':descrizione' => $descrizione,
+        ]);
+
+        $stmtCosto = $pdo->prepare("
+            INSERT INTO costi (deposito, prodotto, prezzo)
+            VALUES (:deposito, :prodotto, :prezzo)
+            ON CONFLICT (deposito, prodotto) DO UPDATE SET prezzo = EXCLUDED.prezzo
+        ");
+
+        foreach ($prezzi as $deposito => $prezzo) {
+            $prezzo = floatval(str_replace(',', '.', $prezzo)); // gestisce anche virgola
+
+            if ($prezzo < 0) {
+                $prezzo = 0.00;
+            }
+
+            $stmtCosto->execute([
+                ':deposito' => $deposito,
+                ':prodotto' => $id,
+                ':prezzo' => $prezzo,
+            ]);
+        }
+
+        $pdo->commit();
+
+        header('Location: aggiungi_prodotto.php?success=1');
+        exit;
+
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        header('Location: aggiungi_prodotto.php?error=1');
+        exit;
+    }
 } else {
-    header('Location: aggiungi_prodotto.php?error=1');
+    header('Location: aggiungi_prodotto.php');
     exit;
 }
