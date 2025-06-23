@@ -536,7 +536,8 @@ Ora inseriamo la password corretta, e ci troveremo davanti alla dashboard dei ma
 
 image::pics/manager_dashboard.png[]
 
-Da qui abbiamo numerose scelte, cliccando ad esempio su *Gestione negozi/fornitori* ci si aprirà questa pagina:
+Oltre alle funzionalità base come la creazione degli utenti ed il campio password, sono state implementate altre idee
+, cliccando ad esempio su *Gestione negozi/fornitori* ci si aprirà questa pagina:
 
 image::pics/gestione_negozi.png[]
 

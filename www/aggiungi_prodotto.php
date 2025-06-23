@@ -8,7 +8,8 @@ if (empty($_SESSION['logged_in']) || $_SESSION['user_role'] !== 'manager') {
 require_once __DIR__ . '/config/db.php';
 $pdo->exec("SET search_path = develop");
 
-$msg = '';
+$msg = $_SESSION['msg'] ?? '';
+unset($_SESSION['msg']);
 
 try {
     $stmtN = $pdo->query("SELECT id FROM negozi WHERE attivo = true ORDER BY id");
@@ -21,6 +22,7 @@ try {
         SELECT c.deposito, c.prodotto, p.nome, c.prezzo
         FROM costi c
         JOIN prodotti p ON c.prodotto = p.id
+        JOIN negozi n ON c.deposito = n.id
         ORDER BY c.deposito, c.prodotto
     ");
     $prezzi = $stmtPrezzi->fetchAll();
@@ -51,7 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':descrizione' => $descrizione
                 ]);
 
-                $msg = "Prodotto aggiunto con successo.";
+                $_SESSION['msg'] = "Prodotto aggiunto con successo.";
+                header("Location: " . $_SERVER['PHP_SELF']);
+                exit;
 
             } elseif ($_POST['azione'] === 'imposta_prezzo') {
                 $id_negozio = $_POST['id_negozio'] ?? '';
@@ -77,7 +81,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':prezzo' => $prezzo
                 ]);
 
-                $msg = "Prezzo impostato con successo.";
+                $_SESSION['msg'] = "Prezzo impostato con successo.";
+                header("Location: " . $_SERVER['PHP_SELF']);
+                exit;
             }
         }
     } catch (Exception $e) {
@@ -191,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="container">
     <!-- Form aggiunta prodotto -->
-    <form method="POST" novalidate>
+    <form method="POST">
         <h2>Aggiungi Nuovo Prodotto</h2>
         <input type="hidden" name="azione" value="aggiungi_prodotto">
 
@@ -208,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 
     <!-- Form impostazione prezzo -->
-    <form method="POST" novalidate>
+    <form method="POST">
         <h2>Imposta Prezzo Prodotto per Negozio</h2>
         <input type="hidden" name="azione" value="imposta_prezzo">
 

@@ -13,10 +13,16 @@ $pdo->exec("SET search_path = develop");
 $negozi = [];
 $prodotti = [];
 $deposito_selezionato = $_GET['deposito'] ?? null;
+$manager_id = $_SESSION['user_id'];
 
 try {
-    $stmt = $pdo->query("SELECT id, orario_apertura, orario_chiusura FROM negozi WHERE attivo = true ORDER BY id");
-    $negozi = $stmt->fetchAll();
+    $stmt = $pdo->prepare("
+        SELECT id, orario_apertura, orario_chiusura
+        FROM negozi
+        WHERE attivo = true AND manager = :manager_id
+        ORDER BY id
+    ");
+    $stmt->execute([':manager_id' => $manager_id]);    $negozi = $stmt->fetchAll();
 
     if ($deposito_selezionato) {
         $stmt = $pdo->prepare("
