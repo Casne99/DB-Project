@@ -603,17 +603,100 @@ image::pics/disponibilita_aggiornata.png[align=center,width=80%]
 
 Questo test conferma che il meccanismo di aggiornamento automatico dell'inventario funziona correttamente, garantendo la coerenza dei dati tra gli ordini completati e le disponibilità di magazzino.
 
-Andiamo ora a creare un utente dalla dashboard del manager: andiamo su Gestione clienti -> Aggiungi nuovo cliente
+=== Gestione clienti e sistema di fidelizzazione
 
-.Creazione nuovo utente
+Il quarto test verifica il ciclo completo di gestione clienti, dalla creazione di un nuovo account cliente fino all'utilizzo del sistema di fidelizzazione per ottenere sconti sugli acquisti.
+
+==== Creazione di un nuovo cliente
+
+Dalla dashboard del manager, selezionando "Gestione clienti" e poi "Aggiungi nuovo cliente", si accede all'interfaccia per la registrazione di nuovi clienti nel sistema.
+
+.Interfaccia di creazione nuovo cliente
 image::pics/creazione_utente.png[align=center,width=80%]
 
-Clicchiamo aggiungi:
+Il form richiede l'inserimento di tutti i dati anagrafici necessari e delle credenziali di accesso. Dopo aver compilato i campi richiesti e confermato l'operazione, il sistema:
 
-.Nuovo utente creato
+1. Verifica l'univocità del codice fiscale e delle credenziali di accesso
+2. Crea un nuovo record nella tabella clienti
+3. Crea un nuovo record nella tabella utenze con la password opportunamente crittografata
+4. Mostra un messaggio di conferma dell'avvenuta registrazione
+
+.Conferma della creazione del nuovo cliente
 image::pics/nuovo_utente_creato.png[align=center,width=80%]
 
-Facciamo il login con le nuove credenziali:
+==== Accesso con il nuovo account cliente
+
+Utilizzando le credenziali del cliente appena creato, è stato effettuato l'accesso al sistema. Il sistema ha correttamente:
+
+1. Autenticato l'utente
+2. Identificato il ruolo "cliente"
+3. Reindirizzato alla dashboard cliente con le funzionalità appropriate
+
+.Dashboard del cliente dopo l'autenticazione
+image::pics/login_cliente.png[align=center,width=80%]
+
+La dashboard mostra correttamente un avviso che informa il cliente di non aver ancora richiesto una tessera fedeltà, necessaria per accumulare punti e ottenere sconti.
+
+==== Richiesta tessera fedeltà e primo acquisto
+
+Dalla dashboard del cliente, selezionando "Acquista", si accede all'interfaccia per effettuare acquisti e richiedere la tessera fedeltà.
+
+.Interfaccia di selezione negozio per acquisti
+image::pics/menu_acquisto.png[align=center,width=80%]
+
+Dopo aver selezionato un negozio, il sistema mostra i prodotti disponibili e offre la possibilità di richiedere una tessera fedeltà. Il test ha previsto:
+
+1. La richiesta di una nuova tessera fedeltà
+2. L'acquisto di un prodotto di valore elevato ("Anello del Potere")
+
+.Interfaccia di acquisto con richiesta tessera fedeltà
+image::pics/pre_purchase.png[align=center,width=80%]
+
+Al completamento dell'operazione, il sistema ha correttamente:
+
+1. Creato una nuova tessera fedeltà associata al cliente
+2. Registrato l'acquisto creando una nuova fattura
+3. Aggiornato le disponibilità di magazzino
+4. Calcolato e assegnato i punti fedeltà in base all'importo speso
+
+.Dashboard cliente dopo l'acquisto con tessera fedeltà
+image::pics/post_purchase.png[align=center,width=80%]
+
+La dashboard mostra ora il saldo punti della tessera fedeltà, confermando il corretto funzionamento del trigger `aggiorna_punti` che incrementa automaticamente i punti dopo ogni acquisto.
+
+==== Acquisto con applicazione di sconto
+
+Avendo accumulato un numero sufficiente di punti (oltre 300), il cliente può ora effettuare un nuovo acquisto applicando uno sconto. Il test ha previsto:
+
+1. La selezione di un negozio
+2. L'acquisto di 4 unità del prodotto "PRD0017"
+3. L'applicazione di uno sconto del 30% (che richiede 300 punti)
+
+.Interfaccia di acquisto con applicazione di sconto
+image::pics/pre_purchase_discounted.png[align=center,width=80%]
+
+Al completamento dell'operazione, il sistema ha correttamente:
+
+1. Verificato la disponibilità di punti sufficienti
+2. Applicato lo sconto del 30% al totale dell'acquisto
+3. Scalato i punti utilizzati dalla tessera fedeltà
+4. Registrato l'acquisto con lo sconto applicato
+5. Aggiornato le disponibilità di magazzino
+
+.Dashboard cliente con riepilogo acquisti
+image::pics/dashboard.png[align=center,width=80%]
+
+La dashboard mostra ora il riepilogo degli acquisti effettuati, con i dettagli delle fatture e il saldo punti aggiornato. La verifica nel database conferma che tutti i dati sono stati correttamente registrati nelle tabelle `fatture`, `prodotti_fattura` e `tessere`.
+
+
+
+
+
+
+
+
+
+
 
 
 

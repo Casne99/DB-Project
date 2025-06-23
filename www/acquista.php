@@ -17,10 +17,10 @@ $deposito_selezionato = $_GET['deposito'] ?? null;
 $prodotti = [];
 $negozi = [];
 $punti = 0;
+$tessera_esiste = false;
 $sconti_disponibili = [];
 
 try {
-
     // Recupera i negozi attivi
     $stmt = $pdo->prepare("
         SELECT id, orario_apertura, orario_chiusura
@@ -31,7 +31,7 @@ try {
     $stmt->execute();
     $negozi = $stmt->fetchAll();
 
-    // Recupera il codice fiscale dell'utente tramite il login (user_email)
+    // Recupera il codice fiscale dell'utente
     $stmtCF = $pdo->prepare("SELECT codice_fiscale FROM develop.clienti WHERE login = :login");
     $stmtCF->execute([':login' => $user_email]);
     $codice_fiscale = $stmtCF->fetchColumn();
@@ -40,18 +40,22 @@ try {
         throw new Exception("Codice fiscale non trovato per l'utente.");
     }
 
-    // Recupera i punti del cliente usando il codice fiscale
-    $stmtPunti = $pdo->prepare("SELECT punti FROM develop.tessere WHERE proprietario = :cf");
-    $stmtPunti->execute([':cf' => $codice_fiscale]);
-    $punti = (int) $stmtPunti->fetchColumn();
+    // Verifica se esiste una tessera
+    $stmtTessera = $pdo->prepare("SELECT punti FROM develop.tessere WHERE proprietario = :cf");
+    $stmtTessera->execute([':cf' => $codice_fiscale]);
+    $punti_raw = $stmtTessera->fetchColumn();
 
-    // Determina gli sconti disponibili
-    $sconti_disponibili = [];
+    if ($punti_raw !== false) {
+        $tessera_esiste = true;
+        $punti = (int)$punti_raw;
+    }
+
+    // Calcola sconti disponibili
     if ($punti >= 100) $sconti_disponibili[] = 5;
     if ($punti >= 200) $sconti_disponibili[] = 15;
     if ($punti >= 300) $sconti_disponibili[] = 30;
 
-    // Recupera i prodotti se è stato selezionato un deposito
+    // Recupera i prodotti del deposito selezionato
     if ($deposito_selezionato) {
         $stmtProd = $pdo->prepare("
             SELECT p.id, p.nome, d.quantita
@@ -65,6 +69,20 @@ try {
         ");
         $stmtProd->execute([':deposito' => $deposito_selezionato]);
         $prodotti = $stmtProd->fetchAll();
+    }
+
+    // Se è stato inviato il form per la richiesta tessera
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['richiedi_tessera']) && $deposito_selezionato && !$tessera_esiste) {
+        $stmtInsert = $pdo->prepare("
+            INSERT INTO develop.tessere (proprietario, negozio_di_rilascio, punti)
+            VALUES (:cf, :negozio, 0)
+        ");
+        $stmtInsert->execute([
+            ':cf' => $codice_fiscale,
+            ':negozio' => $deposito_selezionato
+        ]);
+        header("Location: acquista.php?deposito=" . urlencode($deposito_selezionato));
+        exit;
     }
 } catch (PDOException $e) {
     die("Errore database: " . htmlspecialchars($e->getMessage()));
@@ -100,7 +118,7 @@ try {
         <?php if (count($prodotti) === 0): ?>
             <p>Nessun prodotto disponibile in questo negozio.</p>
         <?php else: ?>
-            <form method="POST" action="invia_ordine.php">
+            <form method="POST" action="invia_ordine.php" style="display: inline;">
                 <input type="hidden" name="deposito" value="<?= htmlspecialchars($deposito_selezionato) ?>">
                 <table border="1" cellpadding="5" cellspacing="0">
                     <thead>
@@ -124,6 +142,7 @@ try {
                                         min="0"
                                         max="<?= (int)$prodotto['quantita'] ?>"
                                         value="0"
+                                        style="width: 50px;"
                                     >
                                 </td>
                             </tr>
@@ -145,8 +164,15 @@ try {
                     <br><br>
                 <?php endif; ?>
 
-                <button type="submit">Invia Ordine</button>
+                <button type="submit" <?= $deposito_selezionato ? '' : 'disabled' ?>>Invia Ordine</button>
             </form>
+
+            <?php if (!$tessera_esiste): ?>
+                <form method="POST" action="acquista.php?deposito=<?= urlencode($deposito_selezionato) ?>" style="display:inline;">
+                    <input type="hidden" name="richiedi_tessera" value="1">
+                    <button type="submit" <?= $deposito_selezionato ? '' : 'disabled' ?>>Richiedi tessera</button>
+                </form>
+            <?php endif; ?>
         <?php endif; ?>
     <?php endif; ?>
 

@@ -22,6 +22,10 @@ $nome_cliente = null;
 $cognome_cliente = null;
 $genere_cliente = null;
 
+// Inizializza lo stato della tessera nella sessione
+$_SESSION['ha_tessera'] = false;
+unset($_SESSION['codice_fiscale']); // lo reinizializziamo sotto se è un cliente
+
 try {
     if ($user_role === 'cliente') {
         $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome, genere FROM clienti WHERE login = :email');
@@ -40,12 +44,15 @@ try {
 
         if ($user_role === 'cliente' && isset($utente['codice_fiscale'])) {
             $cf = $utente['codice_fiscale'];
+            $_SESSION['codice_fiscale'] = $cf;
+
             $stmt = $pdo->prepare('SELECT punti FROM tessere WHERE proprietario = :cf');
             $stmt->execute([':cf' => $cf]);
             $tessera = $stmt->fetch();
 
             if ($tessera && isset($tessera['punti'])) {
                 $punti = (int)$tessera['punti'];
+                $_SESSION['ha_tessera'] = true;
             }
         }
     }
@@ -78,7 +85,7 @@ try {
     </h1>
 
     <?php if ($user_role === 'cliente'): ?>
-        <?php if ($tessera !== false && isset($tessera['punti'])): ?>
+        <?php if ($_SESSION['ha_tessera'] === true): ?>
             <p>Saldo punti tessera fedeltà: <strong><?= $punti ?></strong></p>
         <?php else: ?>
             <p>Non hai richiesto una tessera fedeltà.</p>
