@@ -135,10 +135,13 @@ image::diagrams/catena_negozi.png[align=center,pdfwidth=90%]
 
 == Trigger e funzioni
 
-Segue la lista delle funzioni SQL realizzate:
+Segue la lista delle funzioni SQL realizzate e degli eventuali trigger associati:
 
 [listing]
 ----
+CREATE TRIGGER trigger_aggiorna_punti AFTER INSERT
+ON develop.fatture FOR EACH ROW EXECUTE FUNCTION develop.aggiorna_punti();
+
 CREATE OR REPLACE FUNCTION develop.aggiorna_punti()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -161,7 +164,13 @@ punti del cliente che ha effettuato l'acquisto.
 
 [listing]
 ----
--- DROP FUNCTION develop.check_login_exclusivity();
+CREATE TRIGGER check_login_exclusive_clienti BEFORE
+INSERT OR UPDATE
+ON develop.clienti FOR EACH ROW EXECUTE FUNCTION develop.check_login_exclusivity();
+
+CREATE TRIGGER check_login_exclusive_manager BEFORE
+INSERT OR UPDATE
+ON develop.manager FOR EACH ROW EXECUTE FUNCTION develop.check_login_exclusivity();
 
 CREATE OR REPLACE FUNCTION develop.check_login_exclusivity()
  RETURNS trigger
@@ -184,8 +193,15 @@ $function$
 ;
 ----
 
+Trigger che si attiva dopo l'inserimento di tuple nella tabella manager e nella tabella clienti.  +
+Controlla che l'utenza non sia già associata ad un profilo esistente.
+
 [listing]
 ----
+CREATE TRIGGER trigger_salva_storico_tessere BEFORE
+UPDATE OF attivo
+ON develop.negozi FOR EACH ROW EXECUTE FUNCTION develop.salva_storico_tessere();
+
 CREATE OR REPLACE FUNCTION develop.salva_storico_tessere()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -203,9 +219,14 @@ END;
 $function$
 ;
 ----
+Salvataggio dello storico tessere associate ad un negozio che viene eliminato logicamente dal database.
 
 [listing]
 ----
+CREATE TRIGGER trg_storico_ordini AFTER
+INSERT ON develop.ordini
+FOR EACH ROW EXECUTE FUNCTION develop.tr_storico_ordini_insert();
+
 CREATE OR REPLACE FUNCTION develop.tr_storico_ordini_insert()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -223,22 +244,250 @@ $function$
 
 [listing]
 ----
+CREATE TRIGGER trg_completamento_ordine AFTER
+UPDATE
+    OF completato ON
+    develop.ordini FOR EACH ROW EXECUTE FUNCTION develop.aggiorna_disponibilita_al_completamento();
+
+CREATE OR REPLACE FUNCTION develop.aggiorna_disponibilita_al_completamento()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    r RECORD;
+BEGIN
+    IF NEW.completato AND NOT OLD.completato THEN
+        FOR r IN
+            SELECT prodotto, quantita
+            FROM develop.prodotti_ordine
+            WHERE ordine = NEW.id
+        LOOP
+            INSERT INTO develop.disponibilita (deposito, prodotto, quantita)
+            VALUES (NEW.negozio, r.prodotto, r.quantita)
+            ON CONFLICT (prodotto, deposito) DO UPDATE
+            SET quantita = develop.disponibilita.quantita + EXCLUDED.quantita;
+        END LOOP;
+    END IF;
+
+    RETURN NEW;
+END;
+$function$
+;
 ----
+Funzione attiva che aggiorna la disponibilità del materiale presso un negozio al completamento di un ordine.
+Il completamento dell'ordine avviene quando viene settato il relativo flag.
 
 
 [listing]
 ----
+CREATE OR REPLACE FUNCTION develop.get_ordini_fornitore(fornitore character varying)
+ RETURNS SETOF integer
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    RETURN QUERY SELECT o.id
+	FROM ordini AS o
+	WHERE o.fornitore = fornitore;
+END;
+$function$
+;
 ----
+Funzione attiva che recupera tutti gli ordini associati ad un fornitore.
 
 
 [listing]
 ----
+CREATE OR REPLACE FUNCTION develop.get_tessere_negozio(negozio character varying)
+ RETURNS TABLE(proprietario character)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    RETURN QUERY SELECT t.proprietario
+	FROM tessere AS t
+	WHERE t.negozio_di_rilascio = $1;
+END;
+$function$
+;
 ----
+Funzione attiva che recupera tutti le tessere emesse da un dato negozio.
 
 
 [listing]
 ----
+CREATE OR REPLACE FUNCTION develop.inserisci_ordine_ottimizzato(negozio_id text, prodotti_json json)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    record JSON;
+    prodotto_id TEXT;
+    quantita_richiesta INTEGER;
+    fornitore_id TEXT;
+    ordine_id INTEGER;
+BEGIN
+    FOR record IN SELECT * FROM json_array_elements(prodotti_json) LOOP
+        prodotto_id := record->>'prodotto';
+        quantita_richiesta := (record->>'quantita')::INTEGER;
+
+        -- Trova il fornitore più economico con disponibilità sufficiente per questo prodotto
+        SELECT f.id INTO fornitore_id
+        FROM develop.fornitori f
+        JOIN develop.disponibilita d ON d.deposito = f.id AND d.prodotto = prodotto_id
+        JOIN develop.costi pr ON pr.deposito = f.id AND pr.prodotto = prodotto_id
+        WHERE d.quantita >= quantita_richiesta
+        ORDER BY pr.prezzo ASC
+        LIMIT 1;
+
+        IF fornitore_id IS NULL THEN
+            RAISE EXCEPTION 'Nessun fornitore ha disponibilità sufficiente per il prodotto %', prodotto_id;
+        END IF;
+
+        -- Inserisci l'ordine per questo singolo prodotto presso il miglior fornitore
+        INSERT INTO develop.ordini (data_consegna, negozio, fornitore)
+        VALUES (CURRENT_DATE, negozio_id, fornitore_id)
+        RETURNING id INTO ordine_id;
+
+        INSERT INTO develop.prodotti_ordine (ordine, prodotto, quantita)
+        VALUES (ordine_id, prodotto_id, quantita_richiesta);
+
+        UPDATE develop.disponibilita
+        SET quantita = quantita - quantita_richiesta
+        WHERE prodotto = prodotto_id AND deposito = fornitore_id;
+    END LOOP;
+END;
+$function$
+;
 ----
+Funzionalità richiamata dalla GUI che inserisce potenzialmente più ordini contemporaneamente presso il miglior fornitore per un dato prodotto.
+La struttura del JSON in input è del tipo prodotto: <id prodotto>, quantita: <quantita da ordinare>.
+
+[listing]
+----
+CREATE OR REPLACE FUNCTION develop.inserisci_fattura_con_sconto_json(p_cliente character, p_deposito character varying, p_prodotti_json jsonb, p_sconto_percentuale numeric DEFAULT 0)
+ RETURNS integer
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_punti_cliente INT := 0;
+    v_punti_da_scalare INT := 0;
+    v_sconto_applicato NUMERIC(5,2) := 0;
+    v_id_fattura INT;
+    prod_rec jsonb;
+    v_prodotto varchar(7);
+    v_quantita int;
+    v_prezzo_unitario numeric(8,2);
+    v_totale numeric := 0;
+    v_soglia_punti INT;
+    v_percentuale_sconto NUMERIC;
+BEGIN
+    -- Controllo punti solo se lo sconto è diverso da zero
+    IF p_sconto_percentuale <> 0 THEN
+        SELECT punti INTO v_punti_cliente
+        FROM develop.tessere
+        WHERE proprietario = p_cliente;
+
+        IF v_punti_cliente IS NULL THEN
+            RAISE EXCEPTION 'Tessera non trovata per il cliente %, impossibile applicare sconto', p_cliente;
+        END IF;
+    END IF;
+
+    -- Calcolo totale basato sui prezzi nel deposito
+    FOR prod_rec IN SELECT * FROM jsonb_array_elements(p_prodotti_json)
+    LOOP
+        v_prodotto := prod_rec ->> 'prodotto';
+        v_quantita := (prod_rec ->> 'quantita')::int;
+
+        SELECT c.prezzo INTO v_prezzo_unitario
+        FROM develop.costi c
+        JOIN develop.negozi n ON c.deposito = n.id
+        WHERE c.deposito = p_deposito AND c.prodotto = v_prodotto AND n.attivo;
+
+        IF v_prezzo_unitario IS NULL THEN
+            RAISE EXCEPTION 'Prezzo non trovato per prodotto % nel deposito %', v_prodotto, p_deposito;
+        END IF;
+
+        v_totale := v_totale + (v_prezzo_unitario * v_quantita);
+    END LOOP;
+
+    -- Calcolo sconto
+    IF p_sconto_percentuale = 0 THEN
+        v_punti_da_scalare := 0;
+        v_sconto_applicato := 0;
+    ELSE
+        SELECT
+            CASE p_sconto_percentuale
+                WHEN 5 THEN 100
+                WHEN 15 THEN 200
+                WHEN 30 THEN 300
+                ELSE NULL
+            END,
+            p_sconto_percentuale
+        INTO v_soglia_punti, v_percentuale_sconto;
+
+        IF v_soglia_punti IS NULL THEN
+            RAISE EXCEPTION 'Percentuale sconto non valida';
+        END IF;
+
+        IF v_punti_cliente < v_soglia_punti THEN
+            RAISE EXCEPTION 'Punti insufficienti per applicare sconto %%%', v_percentuale_sconto;
+        END IF;
+
+        v_punti_da_scalare := v_soglia_punti;
+        v_sconto_applicato := LEAST(v_totale * (v_percentuale_sconto / 100), 100);
+    END IF;
+
+    -- Inserimento fattura con negozio
+    INSERT INTO develop.fatture (
+        sconto_applicato,
+        totale,
+        data_acquisto,
+        cliente,
+        negozio
+    )
+    VALUES (
+        v_sconto_applicato,
+        v_totale - v_sconto_applicato,
+        CURRENT_DATE,
+        p_cliente,
+        p_deposito
+    )
+    RETURNING id INTO v_id_fattura;
+
+    -- Aggiorna prodotti_fattura e disponibilità per ogni prodotto
+    FOR prod_rec IN SELECT * FROM jsonb_array_elements(p_prodotti_json)
+    LOOP
+        v_prodotto := prod_rec ->> 'prodotto';
+        v_quantita := (prod_rec ->> 'quantita')::int;
+
+        INSERT INTO develop.prodotti_fattura (prodotto, fattura, quantita)
+        VALUES (v_prodotto, v_id_fattura, v_quantita);
+
+        UPDATE develop.disponibilita
+        SET quantita = quantita - v_quantita
+        WHERE deposito = p_deposito
+          AND prodotto = v_prodotto
+          AND quantita >= v_quantita;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Disponibilità insufficiente per il prodotto % nel deposito %', v_prodotto, p_deposito;
+        END IF;
+    END LOOP;
+
+    -- Aggiorna i punti tessera solo se lo sconto è stato applicato
+    IF v_punti_da_scalare > 0 THEN
+        UPDATE develop.tessere
+        SET punti = punti - v_punti_da_scalare
+        WHERE proprietario = p_cliente;
+    END IF;
+
+    RETURN v_id_fattura;
+END;
+$function$
+;
+----
+Funzionalità richiamata dalla GUI che inserisce una fattura nella tabella fatture e aggiorna la tabella prodotti_fattura, contenente le informazioni
+sui prodotti interessati dai singoli acquisti.
+
 == Prove di funzionamento
 
 
