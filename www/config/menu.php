@@ -7,7 +7,7 @@ return [
     'manager' => [
         ['label' => 'Gestione clienti', 'link' => 'gestione_clienti.php'],
         ['label' => 'Gestione negozi/fornitori', 'link' => 'report.php'],
-        ['label' => 'Gestione prodotti', 'link' => 'prodotti.php'],
+        ['label' => 'Gestione prodotti', 'link' => 'aggiungi_prodotto.php'],
         ['label' => 'Ordina prodotti', 'link' => 'rifornisci.php']
     ],
     'default' => [

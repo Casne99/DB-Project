@@ -267,6 +267,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 
-<p><a href="prodotti.php">Torna alla gestione prodotti</a></p>
+<p><a href="dashboard.php">Torna alla dashboard</a></p>
 </body>
 </html>

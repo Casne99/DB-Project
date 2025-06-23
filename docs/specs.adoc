@@ -537,7 +537,7 @@ Ora inseriamo la password corretta, e ci troveremo davanti alla dashboard dei ma
 image::pics/manager_dashboard.png[]
 
 Oltre alle funzionalità base come la creazione degli utenti ed il campio password, sono state implementate altre idee
-, cliccando ad esempio su *Gestione negozi/fornitori* ci si aprirà questa pagina:
+, cliccando ad esempio su *Gestione negozi/fornitori* si aprirà questa pagina:
 
 image::pics/gestione_negozi.png[]
 
@@ -549,6 +549,32 @@ image::pics/creazione_fornitore.png[]
 Potremo correttamente vedere il nuovo fornitore nella tabella *fornitori*, oltre a quelli gia esistenti.
 
 image::pics/fornitore_creato.png[]
+
+Proviamo ora ad inserire un ordine per un negozio di cui Aragorn è manager.  +
+Dalla dashboard, andiamo su *Ordina prodotti*, questa è la pagina che si aprirà:
+
+image::pics/rifornisci_negozio.png[]
+
+Una volta scelto il negozio di interesse, avremo la possibilità di effettuare ordini
+di uno o più prodotti semplicemente popolando la tabella sulla destra.
+
+image::pics/inserimento_ordine.png[]
+
+Assunto che per tutti i prodotti selezionati esista almeno un fornitore con adeguata disponibilità e un costo dichiarato, questo è quello che vedremo:
+
+image::pics/ordine_inserito.png[]
+
+Possiamo verificare l'inserimento dell'ordine nella tabella ordini:
+
+image::pics/verifica_inserimento_ordine.png[]
+
+Possiamo ora manualmente settare il flag *completato* a true e vedere aggiornarsi la quantità
+dei rispettivi prodotti presso il negozio PNT0009:
+
+image::pics/disponibilita_aggiornata.png[]
+
+
+
 
 
 
