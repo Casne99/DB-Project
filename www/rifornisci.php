@@ -16,7 +16,7 @@ $deposito_selezionato = $_GET['deposito'] ?? null;
 
 try {
     $stmt = $pdo->query("SELECT id, orario_apertura, orario_chiusura FROM negozi WHERE attivo = true ORDER BY id");
-    $negozi = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $negozi = $stmt->fetchAll();
 
     if ($deposito_selezionato) {
         $stmt = $pdo->prepare("
@@ -26,7 +26,7 @@ try {
             ORDER BY p.nome
         ");
         $stmt->execute([':deposito' => $deposito_selezionato]);
-        $prodotti = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $prodotti = $stmt->fetchAll();
     }
 } catch (PDOException $e) {
     die("Errore database: " . htmlspecialchars($e->getMessage()));

@@ -13,7 +13,7 @@ $pdo->exec("SET search_path = develop");
 try {
     $stmt = $pdo->prepare("SELECT codice_fiscale FROM clienti WHERE login = :email");
     $stmt->execute([':email' => $_SESSION['user_email']]);
-    $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+    $cliente = $stmt->fetch();
     if (!$cliente) {
         die("Cliente non trovato.");
     }

@@ -12,10 +12,10 @@ $msg = '';
 
 try {
     $stmtN = $pdo->query("SELECT id FROM negozi WHERE attivo = true ORDER BY id");
-    $negozi = $stmtN->fetchAll(PDO::FETCH_ASSOC);
+    $negozi = $stmtN->fetchAll();
 
     $stmtP = $pdo->query("SELECT id, nome FROM prodotti ORDER BY id");
-    $prodotti = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+    $prodotti = $stmtP->fetchAll();
 
     $stmtPrezzi = $pdo->query("
         SELECT c.deposito, c.prodotto, p.nome, c.prezzo
@@ -23,7 +23,7 @@ try {
         JOIN prodotti p ON c.prodotto = p.id
         ORDER BY c.deposito, c.prodotto
     ");
-    $prezzi = $stmtPrezzi->fetchAll(PDO::FETCH_ASSOC);
+    $prezzi = $stmtPrezzi->fetchAll();
 } catch (PDOException $e) {
     die("Errore database: " . htmlspecialchars($e->getMessage()));
 }

@@ -15,7 +15,7 @@ $pdo->exec("SET search_path = develop");
 try {
     $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome FROM clienti WHERE login = :email');
     $stmt->execute([':email' => $user_email]);
-    $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+    $cliente = $stmt->fetch();
 
     if (!$cliente) {
         throw new Exception('Cliente non trovato.');
@@ -32,15 +32,17 @@ try {
             f.data_acquisto,
             f.totale,
             f.sconto_applicato,
+            f.negozio AS nome_negozio,
             COALESCE(SUM(pf.quantita), 0) AS numero_prodotti
         FROM fatture f
         LEFT JOIN prodotti_fattura pf ON pf.fattura = f.id
+        JOIN negozi n ON f.negozio = n.id
         WHERE f.cliente = :cf
-        GROUP BY f.id
+        GROUP BY f.id, f.negozio
         ORDER BY f.data_acquisto DESC
     ");
     $stmt->execute([':cf' => $cf]);
-    $fatture = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $fatture = $stmt->fetchAll();
 } catch (Exception $e) {
     die("Errore: " . htmlspecialchars($e->getMessage()));
 }
@@ -80,8 +82,9 @@ try {
                     <th>ID Fattura</th>
                     <th>Data Acquisto</th>
                     <th>Totale (€)</th>
-                    <th>Sconto (%)</th>
+                    <th>Sconto (€)</th>
                     <th>Numero Prodotti</th>
+                    <th>Negozio</th>
                 </tr>
             </thead>
             <tbody>
@@ -92,6 +95,7 @@ try {
                         <td><?= number_format($f['totale'], 2, ',', '.') ?></td>
                         <td><?= number_format($f['sconto_applicato'], 2, ',', '.') ?></td>
                         <td><?= (int)$f['numero_prodotti'] ?></td>
+                        <td><?= htmlspecialchars($f['nome_negozio']) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

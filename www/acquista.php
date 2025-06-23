@@ -29,7 +29,7 @@ try {
         ORDER BY id
     ");
     $stmt->execute();
-    $negozi = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $negozi = $stmt->fetchAll();
 
     // Recupera il codice fiscale dell'utente tramite il login (user_email)
     $stmtCF = $pdo->prepare("SELECT codice_fiscale FROM develop.clienti WHERE login = :login");
@@ -64,7 +64,7 @@ try {
             ORDER BY p.nome
         ");
         $stmtProd->execute([':deposito' => $deposito_selezionato]);
-        $prodotti = $stmtProd->fetchAll(PDO::FETCH_ASSOC);
+        $prodotti = $stmtProd->fetchAll();
     }
 } catch (PDOException $e) {
     die("Errore database: " . htmlspecialchars($e->getMessage()));

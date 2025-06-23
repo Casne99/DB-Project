@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['load'])) {
         $stmt = $pdo->prepare("SELECT * FROM clienti WHERE login = :email");
         $stmt->execute(['email' => $email]);
-        $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+        $cliente = $stmt->fetch();
         if (!$cliente) {
             $message = "Cliente non trovato.";
         }

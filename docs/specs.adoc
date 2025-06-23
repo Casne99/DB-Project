@@ -1,8 +1,11 @@
-= Documento di analisi
+= Documentazione tecnica
+:doctype: article
+:toc: left
+:toclevels: 3
+:sectnums:
 
-== Luca Casnedi (Matricola 931856)
 
-=== Premesse
+== Premesse
 
 La presente documentazione descrive il progetto realizzato per il corso di *Basi di Dati* nell’anno accademico 2024/2025.
 
@@ -12,14 +15,15 @@ I *manager* possono gestire i negozi, aggiungere prodotti e definire i prezzi pe
 Essi possono inoltre effettuare ordini verso i *fornitori* per ripristinare la disponibilità dei prodotti in esaurimento. +
 Sia clienti che manager devono poter modificare la propria password, mentre solo i manager sono autorizzati a registrare nuove utenze per i clienti.
 
-=== Attori principali e relazioni
+== Attori principali e relazioni
 
 In questa sezione vengono illustrate le scelte progettuali adottate nella modellazione del dominio, facendo riferimento allo *schema ER* prodotto.
 
-+
+[.text-center]
+.Schema ER iniziale
+image::diagrams/schema_er_v1.png[align=center,pdfwidth=90%]
 
-image::diagrams/schema_er_v1.png[align=center]
-+
+
 
 Lo schema iniziale evidenzia i principali attori coinvolti e le rispettive relazioni. +
 Procedendo da sinistra verso destra, si nota l’entità *Utenza*, utilizzata per registrare le credenziali sia dei clienti sia dei manager. Tali credenziali sono associate in modo univoco a un utente, vincolo garantito da un trigger lato database che sarà analizzato successivamente. +
@@ -30,7 +34,7 @@ Un negozio può inoltre essere destinatario di uno o più *ordini*.
 
 La relazione tra *Negozio* e *Fornitore* è mediata dagli ordini: ogni ordine è infatti inviato da un fornitore a un negozio e riguarda un singolo *Prodotto*.
 
-+
+
 
 [NOTE]
 ====
@@ -38,7 +42,7 @@ L'associazione di un ordine a un solo prodotto è motivata da un preciso requisi
 Permettere a un ordine di includere più prodotti avrebbe comportato una complessità maggiore, trasformando il problema da un semplice confronto di prezzi a un’ottimizzazione globale del costo complessivo dell’ordine.
 ====
 
-+
+
 
 I *prodotti* sono inoltre associati alle *fatture* dei clienti. +
 È possibile osservare una chiara somiglianza tra le entità *Fornitore* e *Negozio*: entrambe rappresentano punti di deposito di prodotti, dotati di un indirizzo, in grado di vendere articoli a un determinato prezzo e quantità. +
@@ -47,13 +51,195 @@ Per tale ragione è stata introdotta l’entità astratta *Punto Deposito*, post
 A partire da questo schema concettuale è stato prodotto uno *schema ristrutturato*, che mantiene tutte le entità della gerarchia e le connette mediante la relazione *IS_A*. +
 Sono inoltre stati ristrutturati alcuni attributi composti, come ad esempio l’attributo _Orari_ dell’entità *Negozio*.
 
-+
-
-image::diagrams/schema_er_v2.png[align=center]
-+
 
 
-=== Implementazione Database
+[.text-center]
+.Schema ER ristrutturato
+image::diagrams/schema_er_v2.png[align=center,pdfwidth=90%]
+
+
+
+
+== Implementazione Database
+
+A partire dallo schema ER ristrutturato, la creazione della struttura del database è quasi automatica. +
+Possiamo fare dei commenti sulle tabelle sulla base del diagramma generato da *DBeaver*, ambiente da me usato per costruire
+la base di dati:
+
+image::diagrams/catena_negozi.png[align=center,pdfwidth=90%]
+
+
+=== Tabelle principali
+
+* *clienti*
+** Identificati tramite codice fiscale
+** Contiene informazioni anagrafiche (nome, cognome, genere)
+** Collegata a utenze per l'accesso
+
+* *utenze*
+** Contiene le credenziali di accesso per clienti e manager (login, password)
+
+* *tessere*
+** Rilasciate ai clienti
+** Traccia dei punti accumulati e del negozio che l’ha emessa
+** Implementate come entità debole, la chiave primaria è anche chiave esterna
+
+* *manager*
+** Contiene dati personali e login per autenticazione
+
+* *negozi*
+** Riferisce al manager responsabile
+** Include orari di apertura/chiusura e stato attivo/inattivo
+
+* *prodotti*
+** Elenco dei prodotti disponibili (nome, descrizione)
+
+* *punti_deposito*
+** Località in cui vengono stoccati i prodotti
+** A questa entità si riferiscono le tabelle che riportano i costi e le disponibilità dei prodotti
+
+* *disponibilità*
+** Relazione tra deposito e prodotto con quantità disponibili
+
+* *costi*
+** Prezzo del prodotto in ciascun deposito
+
+* *fornitori*
+** Identificati da id e partita iva
+
+* *ordini*
+** Collegati a un fornitore e a un negozio
+** Tracciano data di consegna e stato (completato o no)
+
+* *prodotti_ordine*
+** Associazione tra ordini e prodotti, con quantità richieste
+
+* *fatture*
+** Collegate a un cliente
+** Registrano sconto applicato (se presente), totale e data di acquisto
+
+* *prodotti_fattura*
+** Relazione molti-a-molti tra fatture e prodotti, con quantità acquistate
+
+=== Tabelle di supporto
+
+* *storico_ordini*
+** Tabella con lo storico di tutti gli ordini effettuati, alimentata da un meccanismo attivo lato database
+
+* *storico_tessere*
+** Tabella con lo storico di tutte le tessere emesse, alimentata da un meccanismo attivo lato database
+
+* *tessere_oltre_300*
+** Vista contenente tutte le tessere con 300 o più punti
+
+
+== Trigger e funzioni
+
+Segue la lista delle funzioni SQL realizzate:
+
+[listing]
+----
+CREATE OR REPLACE FUNCTION develop.aggiorna_punti()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    UPDATE develop.tessere
+    SET punti = punti + FLOOR(NEW.totale)
+    WHERE proprietario = NEW.cliente;
+
+    RETURN NULL;
+END;
+$function$
+;
+----
+
+Si spiega da se, è associata a un trigger che scatta dopo l'inserimento di una nuova fattura nella tabella fatture e aggiorna il saldo
+punti del cliente che ha effettuato l'acquisto.
+
+
+
+[listing]
+----
+-- DROP FUNCTION develop.check_login_exclusivity();
+
+CREATE OR REPLACE FUNCTION develop.check_login_exclusivity()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    -- Verifica se il login è già presente nell'altra tabella
+    IF TG_TABLE_NAME = 'clienti' THEN
+        IF EXISTS (SELECT 1 FROM develop.manager WHERE login = NEW.login) THEN
+            RAISE EXCEPTION 'Login % già associato a un manager', NEW.login;
+        END IF;
+    ELSIF TG_TABLE_NAME = 'manager' THEN
+        IF EXISTS (SELECT 1 FROM develop.clienti WHERE login = NEW.login) THEN
+            RAISE EXCEPTION 'Login % già associato a un cliente', NEW.login;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$function$
+;
+----
+
+[listing]
+----
+CREATE OR REPLACE FUNCTION develop.salva_storico_tessere()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    IF OLD.attivo AND NOT NEW.attivo THEN
+        INSERT INTO develop.storico_tessere (proprietario, punti, negozio_di_rilascio, data_richiesta)
+        SELECT proprietario, punti, negozio_di_rilascio, data_richiesta
+        FROM develop.tessere
+        WHERE negozio_di_rilascio = OLD.id;
+    END IF;
+
+    RETURN NEW;
+END;
+$function$
+;
+----
+
+[listing]
+----
+CREATE OR REPLACE FUNCTION develop.tr_storico_ordini_insert()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    INSERT INTO develop.storico_ordini (ordine_id, data_consegna, negozio_id, fornitore_id)
+    VALUES (NEW.id, NEW.data_consegna, NEW.negozio, NEW.fornitore);
+
+    RETURN NEW;
+END;
+$function$
+;
+----
+
+
+[listing]
+----
+----
+
+
+[listing]
+----
+----
+
+
+[listing]
+----
+----
+
+
+[listing]
+----
+----
+== Prove di funzionamento
 
 
 

@@ -26,11 +26,11 @@ try {
     if ($user_role === 'cliente') {
         $stmt = $pdo->prepare('SELECT codice_fiscale, nome, cognome, genere FROM clienti WHERE login = :email');
         $stmt->execute([':email' => $user_email]);
-        $utente = $stmt->fetch(PDO::FETCH_ASSOC);
+        $utente = $stmt->fetch();
     } elseif ($user_role === 'manager') {
         $stmt = $pdo->prepare('SELECT nome, cognome, genere FROM manager WHERE login = :email');
         $stmt->execute([':email' => $user_email]);
-        $utente = $stmt->fetch(PDO::FETCH_ASSOC);
+        $utente = $stmt->fetch();
     }
 
     if (!empty($utente)) {
@@ -42,7 +42,7 @@ try {
             $cf = $utente['codice_fiscale'];
             $stmt = $pdo->prepare('SELECT punti FROM tessere WHERE proprietario = :cf');
             $stmt->execute([':cf' => $cf]);
-            $tessera = $stmt->fetch(PDO::FETCH_ASSOC);
+            $tessera = $stmt->fetch();
 
             if ($tessera && isset($tessera['punti'])) {
                 $punti = (int)$tessera['punti'];

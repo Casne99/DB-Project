@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $pdo->prepare('SELECT password FROM develop.utenze WHERE login = :email');
     $stmt->execute(['email' => $email]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $result = $stmt->fetch();
 
     if ($result && isset($result['password'])) {
         $hashSalvato = $result['password'];
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($ruolo->value === 'manager') {
                 $stmtId = $pdo->prepare("SELECT id FROM develop.manager WHERE login = :login");
                 $stmtId->execute([':login' => $email]);
-                $managerData = $stmtId->fetch(PDO::FETCH_ASSOC);
+                $managerData = $stmtId->fetch();
                 if ($managerData && isset($managerData['id'])) {
                     $_SESSION['user_id'] = $managerData['id'];
                 } else {

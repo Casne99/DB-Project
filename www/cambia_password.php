@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->exec("SET search_path = develop");
         $stmt = $pdo->prepare('SELECT password FROM utenze WHERE login = :email');
         $stmt->execute(['email' => $email]);
-        $utente = $stmt->fetch(PDO::FETCH_ASSOC);
+        $utente = $stmt->fetch();
 
         if ($utente && password_verify($password_corrente, $utente['password'])) {
             // Hash nuova password
