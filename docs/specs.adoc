@@ -613,7 +613,47 @@ Clicchiamo aggiungi:
 .Nuovo utente creato
 image::pics/nuovo_utente_creato.png[align=center,width=80%]
 
-Facciamo il login con le nuove credenziali:
+Facciamo il login con le nuove credenziali e questa è la situazione che ci dovremmo trovare davanti:
+
+image::pics/login_cliente.png[align=center,width=80%]
+
+Notiamo subito che il sistema ci informa di non aver richiesto una tessera fedeltà,
+utile per avere punti. Andiamo quindi a richiederla andando su Acquista.
+
+image::pics/menu_acquisto.png[align=center,width=80%]
+
+Selezionamo quindi un negozio presso il quale effettuare acquisti e/o richiedere una tessera fedeltà:
+
+image::pics/menu_acquisto.png[align=center,width=80%]
+
+Richiediamo quindi una tessera e acquistiamo un Anello del Potere.
+
+image::pics/pre_purchase.png[align=center,width=80%].
+
+Visualizzeremo a questo punto un messaggio con l'esito dell'operazione e avremo modo di visualizzare
+il saldo punti della nuova tessera fedeltà presso la dashboard del cliente:
+
+image::pics/post_purchase.png[align=center,width=80%].
+
+L'acquisto è stato consistente e il nostro saldo punti ci permette di effettuare un altro acquisto, con un eventuale sconto
+che possiamo decidere di applicare o meno.   +
+Torniamo quindi sulla pagina degli acquisti e selezioniamo il nostro nuovo sconto del 30%, comprando 4 prodotti con ID *PRD0017*:
+
+image::pics/post_purchase.png[align=center].
+
+Possiamo ora tornare alla dashboard a visualizzare il resoconto dei nostri acquisti:
+
+image::pics/dashboard.png[align=center].
+
+
+
+
+
+
+
+
+
+
 
 
 
