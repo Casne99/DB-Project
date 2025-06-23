@@ -520,58 +520,88 @@ Questa funzione complessa implementa il sistema di fatturazione con gestione deg
 
 Il sistema implementa tre livelli di sconto: 5% (100 punti), 15% (200 punti) e 30% (300 punti), con un limite massimo di 100 euro per ogni sconto applicato.
 
-== Prove di funzionamento
+== Verifiche funzionali e test di integrazione
 
-Partiamo dall'operazione di login.  +
-Tra le credenziali per accedere con ruolo di manager abbiamo `aragorn.elessar@gondor.tdm` con password `aragorn.elessar`.  +
-Questa è la situazione alla pagina di login `http://localhost/login.php`:
+In questa sezione vengono documentati i test funzionali eseguiti per verificare il corretto funzionamento del sistema e l'integrazione tra i vari componenti. I test sono stati condotti in un ambiente di sviluppo locale, simulando le principali operazioni che gli utenti eseguiranno nell'applicazione in produzione.
 
-image::pics/login.png[]
+=== Autenticazione e controllo accessi
 
-Proviamo ad inserire la mail dell'utente `aragorn.elessar@gondor.tdm` e una password sbagliata:
+Il primo test riguarda il sistema di autenticazione e la corretta applicazione dei ruoli utente. Per questo test sono state utilizzate le credenziali di un manager: `aragorn.elessar@gondor.tdm` con password `aragorn.elessar`.
 
-image::pics/wrong_password.png[]
+.Schermata di login dell'applicazione
+image::pics/login.png[align=center,width=80%]
 
-Ora inseriamo la password corretta, e ci troveremo davanti alla dashboard dei manager (`aragorn.elessar@gondor.tdm` è il login associato ad un profilo di ruolo manager):
+Il sistema di autenticazione è stato testato con i seguenti scenari:
 
-image::pics/manager_dashboard.png[]
+* *Credenziali errate*: Inserendo una password non corretta, il sistema correttamente rifiuta l'accesso e mostra un messaggio di errore appropriato.
 
-Oltre alle funzionalità base come la creazione degli utenti ed il campio password, sono state implementate altre idee
-, cliccando ad esempio su *Gestione negozi/fornitori* si aprirà questa pagina:
+.Messaggio di errore per credenziali non valide
+image::pics/wrong_password.png[align=center,width=80%]
 
-image::pics/gestione_negozi.png[]
+* *Credenziali valide*: Con le credenziali corrette, il sistema autentica l'utente e lo reindirizza alla dashboard corrispondente al suo ruolo (manager).
 
-In questa pagina possiamo chiaramente creare un nuovo negozio o un nuovo fornitore. Proviamo a creare
-un nuovo fornitore con id _1234567_, indirizzo _Appena fuori di casa_ e partita IVA _09876543211_
+.Dashboard del manager dopo autenticazione riuscita
+image::pics/manager_dashboard.png[align=center,width=80%]
 
-image::pics/creazione_fornitore.png[]
+=== Gestione entità di business
 
-Potremo correttamente vedere il nuovo fornitore nella tabella *fornitori*, oltre a quelli gia esistenti.
+Il secondo test verifica la funzionalità di gestione delle entità principali del sistema, in particolare la creazione di nuovi fornitori.
 
-image::pics/fornitore_creato.png[]
+.Interfaccia di gestione negozi e fornitori
+image::pics/gestione_negozi.png[align=center,width=80%]
 
-Proviamo ora ad inserire un ordine per un negozio di cui Aragorn è manager.  +
-Dalla dashboard, andiamo su *Ordina prodotti*, questa è la pagina che si aprirà:
+Dalla dashboard del manager, selezionando "Gestione negozi/fornitori", si accede all'interfaccia che permette di creare e gestire queste entità. Il test ha previsto la creazione di un nuovo fornitore con i seguenti dati:
 
-image::pics/rifornisci_negozio.png[]
+* ID: `1234567`
+* Indirizzo: `Appena fuori di casa`
+* Partita IVA: `09876543211`
 
-Una volta scelto il negozio di interesse, avremo la possibilità di effettuare ordini
-di uno o più prodotti semplicemente popolando la tabella sulla destra.
+.Inserimento di un nuovo fornitore
+image::pics/creazione_fornitore.png[align=center,width=80%]
 
-image::pics/inserimento_ordine.png[]
+Dopo la conferma, il sistema ha correttamente inserito il nuovo fornitore nel database, come verificato dalla sua presenza nella tabella dei fornitori.
 
-Assunto che per tutti i prodotti selezionati esista almeno un fornitore con adeguata disponibilità e un costo dichiarato, questo è quello che vedremo:
+.Verifica dell'inserimento del fornitore
+image::pics/fornitore_creato.png[align=center,width=80%]
 
-image::pics/ordine_inserito.png[]
+=== Ciclo di approvvigionamento
 
-Possiamo verificare l'inserimento dell'ordine nella tabella ordini:
+Il terzo test verifica il ciclo completo di approvvigionamento, dall'inserimento di un ordine fino all'aggiornamento delle disponibilità di magazzino.
 
-image::pics/verifica_inserimento_ordine.png[]
 
-Possiamo ora manualmente settare il flag *completato* a true e vedere aggiornarsi la quantità
-dei rispettivi prodotti presso il negozio PNT0009:
 
-image::pics/disponibilita_aggiornata.png[]
+Dalla dashboard del manager, selezionando "Ordina prodotti", si accede all'interfaccia che permette di creare ordini per rifornire i negozi. Il test ha previsto la selezione di un negozio (PNT0009) e l'inserimento di quantità per diversi prodotti.
+
+.Interfaccia di rifornimento negozio
+image::pics/rifornisci_negozio.png[align=center,width=80%]
+
+.Inserimento di un nuovo ordine
+image::pics/inserimento_ordine.png[align=center,width=80%]
+
+Al completamento dell'operazione, il sistema ha correttamente:
+
+1. Identificato i fornitori ottimali per ciascun prodotto (miglior prezzo con disponibilità sufficiente)
+2. Creato gli ordini corrispondenti nel database
+3. Mostrato un messaggio di conferma all'utente
+
+.Conferma dell'inserimento dell'ordine
+image::pics/ordine_inserito.png[align=center,width=80%]
+
+La verifica dell'inserimento è stata effettuata consultando direttamente la tabella degli ordini nel database:
+
+.Verifica dell'inserimento dell'ordine nel database
+image::pics/verifica_inserimento_ordine.png[align=center,width=80%]
+
+=== Verifica dei trigger di aggiornamento disponibilità
+
+L'ultimo test ha verificato il corretto funzionamento del trigger `aggiorna_disponibilita_al_completamento`, che deve aggiornare automaticamente le disponibilità di magazzino quando un ordine viene completato.
+
+Dopo aver impostato manualmente il flag `completato` a `true` per l'ordine inserito, è stato verificato che le quantità dei prodotti presso il negozio PNT0009 sono state correttamente incrementate, confermando il corretto funzionamento del trigger.
+
+.Verifica dell'aggiornamento automatico delle disponibilità
+image::pics/disponibilita_aggiornata.png[align=center,width=80%]
+
+Questo test conferma che il meccanismo di aggiornamento automatico dell'inventario funziona correttamente, garantendo la coerenza dei dati tra gli ordini completati e le disponibilità di magazzino.
 
 
 
