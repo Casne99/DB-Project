@@ -603,6 +603,21 @@ image::pics/disponibilita_aggiornata.png[align=center,width=80%]
 
 Questo test conferma che il meccanismo di aggiornamento automatico dell'inventario funziona correttamente, garantendo la coerenza dei dati tra gli ordini completati e le disponibilità di magazzino.
 
+Andiamo ora a creare un utente dalla dashboard del manager: andiamo su Gestione clienti -> Aggiungi nuovo cliente
+
+.Creazione nuovo utente
+image::pics/creazione_utente.png[align=center,width=80%]
+
+Clicchiamo aggiungi:
+
+.Nuovo utente creato
+image::pics/nuovo_utente_creato.png[align=center,width=80%]
+
+Facciamo il login con le nuove credenziali:
+
+
+
+
 
 
 
