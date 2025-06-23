@@ -79,6 +79,12 @@ try {
         button:hover {
             background-color: #204d74;
         }
+        /* Contenitore scroll verticale */
+        .table-wrapper {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
@@ -105,31 +111,33 @@ try {
             <div class="tabella-prodotti">
                 <form method="POST" action="processa_ordine.php">
                     <input type="hidden" name="negozio" value="<?= htmlspecialchars($deposito_selezionato) ?>">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nome</th>
-                                <th>Disponibilità</th>
-                                <th>Quantità da ordinare</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($prodotti as $p): ?>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td><?= htmlspecialchars($p['id']) ?></td>
-                                    <td><?= htmlspecialchars($p['nome']) ?></td>
-                                    <td><?= (int)$p['quantita'] ?></td>
-                                    <td>
-                                        <input type="number"
-                                               name="quantita[<?= htmlspecialchars($p['id']) ?>]"
-                                               min="0"
-                                               value="0">
-                                    </td>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Disponibilità</th>
+                                    <th>Quantità da ordinare</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($prodotti as $p): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($p['id']) ?></td>
+                                        <td><?= htmlspecialchars($p['nome']) ?></td>
+                                        <td><?= (int)$p['quantita'] ?></td>
+                                        <td>
+                                            <input type="number"
+                                                   name="quantita[<?= htmlspecialchars($p['id']) ?>]"
+                                                   min="0"
+                                                   value="0">
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                     <button type="submit">Invia Ordine</button>
                 </form>
             </div>

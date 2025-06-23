@@ -522,5 +522,33 @@ Il sistema implementa tre livelli di sconto: 5% (100 punti), 15% (200 punti) e 3
 
 == Prove di funzionamento
 
+Partiamo dall'operazione di login.  +
+Tra le credenziali per accedere con ruolo di manager abbiamo `aragorn.elessar@gondor.tdm` con password `aragorn.elessar`.  +
+Questa è la situazione alla pagina di login `http://localhost/login.php`:
+
+image::pics/login.png[]
+
+Proviamo ad inserire la mail dell'utente `aragorn.elessar@gondor.tdm` e una password sbagliata:
+
+image::pics/wrong_password.png[]
+
+Ora inseriamo la password corretta, e ci troveremo davanti alla dashboard dei manager (`aragorn.elessar@gondor.tdm` è il login associato ad un profilo di ruolo manager):
+
+image::pics/manager_dashboard.png[]
+
+Da qui abbiamo numerose scelte, cliccando ad esempio su *Gestione negozi/fornitori* ci si aprirà questa pagina:
+
+image::pics/gestione_negozi.png[]
+
+In questa pagina possiamo chiaramente creare un nuovo negozio o un nuovo fornitore. Proviamo a creare
+un nuovo fornitore con id _1234567_, indirizzo _Appena fuori di casa_ e partita IVA _09876543211_
+
+image::pics/creazione_fornitore.png[]
+
+Potremo correttamente vedere il nuovo fornitore nella tabella *fornitori*, oltre a quelli gia esistenti.
+
+image::pics/fornitore_creato.png[]
+
+
 
 
