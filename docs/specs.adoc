@@ -135,7 +135,9 @@ image::diagrams/catena_negozi.png[align=center,pdfwidth=90%]
 
 == Trigger e funzioni
 
-Segue la lista delle funzioni SQL realizzate e degli eventuali trigger associati:
+Il database implementa diversi meccanismi attivi (trigger e funzioni) per garantire l'integrità dei dati, automatizzare operazioni ricorrenti e implementare regole di business complesse. Di seguito sono descritti i principali trigger e le relative funzioni.
+
+=== Sistema di fidelizzazione clienti
 
 [listing]
 ----
@@ -157,10 +159,9 @@ $function$
 ;
 ----
 
-Si spiega da se, è associata a un trigger che scatta dopo l'inserimento di una nuova fattura nella tabella fatture e aggiorna il saldo
-punti del cliente che ha effettuato l'acquisto.
+Questo trigger implementa il sistema di fidelizzazione clienti, aggiornando automaticamente il saldo punti delle tessere fedeltà. Si attiva dopo l'inserimento di una nuova fattura e incrementa i punti della tessera del cliente in base all'importo speso (arrotondato per difetto). Per ogni euro speso, il cliente guadagna un punto fedeltà.
 
-
+=== Unicità delle credenziali utente
 
 [listing]
 ----
@@ -193,8 +194,9 @@ $function$
 ;
 ----
 
-Trigger che si attiva dopo l'inserimento di tuple nella tabella manager e nella tabella clienti.  +
-Controlla che l'utenza non sia già associata ad un profilo esistente.
+Questo meccanismo garantisce che le credenziali di accesso (login) siano univoche tra clienti e manager. Poiché le credenziali sono memorizzate in tabelle separate, è necessario un controllo a livello di trigger per assicurare che lo stesso nome utente non possa essere utilizzato contemporaneamente da un cliente e da un manager. Il trigger si attiva prima dell'inserimento o dell'aggiornamento di record nelle tabelle clienti e manager, verificando che il login non sia già presente nell'altra tabella.
+
+=== Storicizzazione delle tessere fedeltà
 
 [listing]
 ----
@@ -219,7 +221,10 @@ END;
 $function$
 ;
 ----
-Salvataggio dello storico tessere associate ad un negozio che viene eliminato logicamente dal database.
+
+Questo trigger implementa un meccanismo di storicizzazione delle tessere fedeltà quando un negozio viene disattivato. Si attiva prima dell'aggiornamento del campo "attivo" nella tabella negozi e, se il negozio passa da attivo a inattivo, salva nella tabella storico_tessere tutte le tessere emesse da quel negozio. Questo permette di mantenere uno storico completo delle tessere anche dopo la disattivazione di un punto vendita.
+
+=== Tracciamento degli ordini
 
 [listing]
 ----
@@ -241,12 +246,14 @@ $function$
 ;
 ----
 
+Questo trigger implementa un sistema di tracciamento degli ordini, registrando automaticamente ogni nuovo ordine nella tabella storico_ordini. Si attiva dopo l'inserimento di un nuovo record nella tabella ordini e copia le informazioni principali (ID ordine, data di consegna, negozio e fornitore) nella tabella di storico. Questo permette di mantenere una traccia completa di tutti gli ordini effettuati, anche se dovessero essere modificati o eliminati dalla tabella principale.
+
+=== Aggiornamento disponibilità prodotti
 
 [listing]
 ----
 CREATE TRIGGER trg_completamento_ordine AFTER
-UPDATE
-    OF completato ON
+UPDATE OF completato ON
     develop.ordini FOR EACH ROW EXECUTE FUNCTION develop.aggiorna_disponibilita_al_completamento();
 
 CREATE OR REPLACE FUNCTION develop.aggiorna_disponibilita_al_completamento()
@@ -274,9 +281,11 @@ END;
 $function$
 ;
 ----
-Funzione attiva che aggiorna la disponibilità del materiale presso un negozio al completamento di un ordine.
-Il completamento dell'ordine avviene quando viene settato il relativo flag.
 
+Questo trigger implementa l'aggiornamento automatico dell'inventario quando un ordine viene completato. Si attiva dopo l'aggiornamento del campo "completato" nella tabella ordini e, se l'ordine passa da non completato a completato, incrementa la quantità disponibile dei prodotti ordinati nel negozio destinatario. La funzione utilizza un ciclo per elaborare ogni prodotto nell'ordine e aggiorna la tabella disponibilita con un'operazione INSERT...ON CONFLICT che gestisce sia l'inserimento di nuovi prodotti che l'aggiornamento di quelli esistenti. Questo meccanismo garantisce che l'inventario del negozio sia sempre sincronizzato con gli ordini completati.
+
+
+=== Funzioni di utilità per la gestione degli ordini e delle tessere
 
 [listing]
 ----
@@ -292,7 +301,8 @@ END;
 $function$
 ;
 ----
-Funzione attiva che recupera tutti gli ordini associati ad un fornitore.
+
+Questa funzione di utilità restituisce tutti gli ID degli ordini associati a un determinato fornitore. Viene utilizzata per generare report e monitorare le attività di approvvigionamento da specifici fornitori. La funzione accetta come parametro l'identificativo del fornitore e restituisce un insieme di valori interi corrispondenti agli ID degli ordini.
 
 
 [listing]
@@ -309,8 +319,11 @@ END;
 $function$
 ;
 ----
-Funzione attiva che recupera tutti le tessere emesse da un dato negozio.
 
+Questa funzione restituisce l'elenco dei proprietari di tessere fedeltà emesse da un determinato negozio. È utilizzata principalmente per scopi di reporting e analisi della clientela fidelizzata. La funzione accetta come parametro l'identificativo del negozio e restituisce una tabella contenente i codici fiscali dei clienti che hanno richiesto una tessera presso quel punto vendita.
+
+
+=== Funzioni per la gestione degli ordini ottimizzati
 
 [listing]
 ----
@@ -358,8 +371,17 @@ END;
 $function$
 ;
 ----
-Funzionalità richiamata dalla GUI che inserisce potenzialmente più ordini contemporaneamente presso il miglior fornitore per un dato prodotto.
-La struttura del JSON in input è del tipo prodotto: <id prodotto>, quantita: <quantita da ordinare>.
+
+Questa funzione implementa un sistema di ordinazione intelligente che seleziona automaticamente il fornitore più conveniente per ciascun prodotto richiesto. Riceve come input l'ID del negozio che effettua l'ordine e un oggetto JSON contenente l'elenco dei prodotti con le relative quantità richieste. Per ogni prodotto, la funzione:
+
+1. Cerca il fornitore che offre il prezzo più basso e ha disponibilità sufficiente
+2. Crea un nuovo ordine verso quel fornitore
+3. Registra il prodotto e la quantità nell'ordine
+4. Aggiorna la disponibilità presso il fornitore
+
+Questo approccio garantisce che ogni prodotto venga acquistato al prezzo più vantaggioso, ottimizzando i costi di approvvigionamento per la catena di negozi.
+
+=== Sistema di fatturazione con gestione sconti
 
 [listing]
 ----
@@ -485,8 +507,18 @@ END;
 $function$
 ;
 ----
-Funzionalità richiamata dalla GUI che inserisce una fattura nella tabella fatture e aggiorna la tabella prodotti_fattura, contenente le informazioni
-sui prodotti interessati dai singoli acquisti.
+
+Questa funzione complessa implementa il sistema di fatturazione con gestione degli sconti basati sui punti fedeltà. Riceve come parametri il codice fiscale del cliente, l'ID del negozio, un oggetto JSON contenente i prodotti acquistati e l'eventuale percentuale di sconto da applicare. La funzione esegue diverse operazioni critiche:
+
+1. Verifica che il cliente abbia una tessera fedeltà e punti sufficienti per lo sconto richiesto
+2. Calcola il totale della fattura in base ai prezzi dei prodotti nel negozio specifico
+3. Applica lo sconto in base alla percentuale richiesta (5%, 15% o 30%) e ai punti disponibili
+4. Crea la fattura con tutti i dati necessari
+5. Registra i prodotti acquistati nella tabella prodotti_fattura
+6. Aggiorna le disponibilità dei prodotti nel negozio
+7. Scala i punti utilizzati dalla tessera fedeltà del cliente
+
+Il sistema implementa tre livelli di sconto: 5% (100 punti), 15% (200 punti) e 30% (300 punti), con un limite massimo di 100 euro per ogni sconto applicato.
 
 == Prove di funzionamento
 
