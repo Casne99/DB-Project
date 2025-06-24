@@ -1,1 +1,4 @@
+# Blocca completamente l'accesso a questa directory
+Order deny,allow
+Deny from all
 Require all denied
