@@ -5,7 +5,7 @@
 -- Dumped from database version 16.3
 -- Dumped by pg_dump version 16.3
 
--- Started on 2025-06-21 22:34:21
+-- Started on 2025-06-24 21:13:51
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -27,6 +27,37 @@ CREATE SCHEMA develop;
 
 
 ALTER SCHEMA develop OWNER TO postgres;
+
+--
+-- TOC entry 244 (class 1255 OID 19229)
+-- Name: aggiorna_disponibilita_al_completamento(); Type: FUNCTION; Schema: develop; Owner: postgres
+--
+
+CREATE FUNCTION develop.aggiorna_disponibilita_al_completamento() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    r RECORD;
+BEGIN
+    IF NEW.completato AND NOT OLD.completato THEN
+        FOR r IN
+            SELECT prodotto, quantita
+            FROM develop.prodotti_ordine
+            WHERE ordine = NEW.id
+        LOOP
+            INSERT INTO develop.disponibilita (deposito, prodotto, quantita)
+            VALUES (NEW.negozio, r.prodotto, r.quantita)
+            ON CONFLICT (prodotto, deposito) DO UPDATE
+            SET quantita = develop.disponibilita.quantita + EXCLUDED.quantita;
+        END LOOP;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION develop.aggiorna_disponibilita_al_completamento() OWNER TO postgres;
 
 --
 -- TOC entry 240 (class 1255 OID 19157)
@@ -112,7 +143,7 @@ $_$;
 ALTER FUNCTION develop.get_tessere_negozio(negozio character varying) OWNER TO postgres;
 
 --
--- TOC entry 256 (class 1255 OID 19224)
+-- TOC entry 257 (class 1255 OID 19224)
 -- Name: inserisci_fattura_con_sconto_json(character, character varying, jsonb, numeric); Type: FUNCTION; Schema: develop; Owner: postgres
 --
 
@@ -149,11 +180,10 @@ BEGIN
         v_prodotto := prod_rec ->> 'prodotto';
         v_quantita := (prod_rec ->> 'quantita')::int;
 
-		SELECT c.prezzo INTO v_prezzo_unitario
-		FROM develop.costi c
-		JOIN develop.negozi n ON c.deposito = n.id
-		WHERE c.deposito = p_deposito AND c.prodotto = v_prodotto AND n.attivo;
-
+        SELECT c.prezzo INTO v_prezzo_unitario
+        FROM develop.costi c
+        JOIN develop.negozi n ON c.deposito = n.id
+        WHERE c.deposito = p_deposito AND c.prodotto = v_prodotto AND n.attivo;
 
         IF v_prezzo_unitario IS NULL THEN
             RAISE EXCEPTION 'Prezzo non trovato per prodotto % nel deposito %', v_prodotto, p_deposito;
@@ -189,9 +219,21 @@ BEGIN
         v_sconto_applicato := LEAST(v_totale * (v_percentuale_sconto / 100), 100);
     END IF;
 
-    -- Inserimento fattura con totale netto
-    INSERT INTO develop.fatture (sconto_applicato, totale, data_acquisto, cliente)
-    VALUES (v_sconto_applicato, v_totale - v_sconto_applicato, CURRENT_DATE, p_cliente)
+    -- Inserimento fattura con negozio
+    INSERT INTO develop.fatture (
+        sconto_applicato,
+        totale,
+        data_acquisto,
+        cliente,
+        negozio
+    )
+    VALUES (
+        v_sconto_applicato,
+        v_totale - v_sconto_applicato,
+        CURRENT_DATE,
+        p_cliente,
+        p_deposito
+    )
     RETURNING id INTO v_id_fattura;
 
     -- Aggiorna prodotti_fattura e disponibilità per ogni prodotto
@@ -229,7 +271,7 @@ $$;
 ALTER FUNCTION develop.inserisci_fattura_con_sconto_json(p_cliente character, p_deposito character varying, p_prodotti_json jsonb, p_sconto_percentuale numeric) OWNER TO postgres;
 
 --
--- TOC entry 255 (class 1255 OID 19170)
+-- TOC entry 256 (class 1255 OID 19170)
 -- Name: inserisci_ordine_ottimizzato(text, json); Type: FUNCTION; Schema: develop; Owner: postgres
 --
 
@@ -287,7 +329,7 @@ CREATE FUNCTION develop.salva_storico_tessere() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF OLD.attivo = true AND NEW.attivo = false THEN
+    IF OLD.attivo AND NOT NEW.attivo THEN
         INSERT INTO develop.storico_tessere (proprietario, punti, negozio_di_rilascio, data_richiesta)
         SELECT proprietario, punti, negozio_di_rilascio, data_richiesta
         FROM develop.tessere
@@ -334,7 +376,8 @@ CREATE TABLE develop.clienti (
     login character varying(60) NOT NULL,
     codice_fiscale character(16) NOT NULL,
     cognome character varying(100),
-    genere character(1) NOT NULL
+    genere character(1) NOT NULL,
+    CONSTRAINT clienti_check CHECK ((char_length(codice_fiscale) = 16))
 );
 
 
@@ -380,6 +423,7 @@ CREATE TABLE develop.fatture (
     data_acquisto date NOT NULL,
     id integer NOT NULL,
     cliente character(16) NOT NULL,
+    negozio character varying(7) NOT NULL,
     CONSTRAINT fatture_check CHECK (((sconto_applicato >= (0)::numeric) AND (sconto_applicato <= (100)::numeric)))
 );
 
@@ -403,7 +447,7 @@ CREATE SEQUENCE develop.fatture_id_seq
 ALTER SEQUENCE develop.fatture_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4951 (class 0 OID 0)
+-- TOC entry 4958 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: fatture_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -418,7 +462,8 @@ ALTER SEQUENCE develop.fatture_id_seq OWNED BY develop.fatture.id;
 
 CREATE TABLE develop.fornitori (
     id character varying(7) NOT NULL,
-    partita_iva character(11) NOT NULL
+    partita_iva character(11) NOT NULL,
+    CONSTRAINT fornitori_check CHECK ((char_length(partita_iva) = 11))
 );
 
 
@@ -466,7 +511,8 @@ CREATE TABLE develop.ordini (
     id integer NOT NULL,
     data_consegna date NOT NULL,
     negozio character varying(7) NOT NULL,
-    fornitore character varying(7) NOT NULL
+    fornitore character varying(7) NOT NULL,
+    completato boolean DEFAULT false NOT NULL
 );
 
 
@@ -489,7 +535,7 @@ CREATE SEQUENCE develop.ordini_id_seq
 ALTER SEQUENCE develop.ordini_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4955 (class 0 OID 0)
+-- TOC entry 4964 (class 0 OID 0)
 -- Dependencies: 232
 -- Name: ordini_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -559,11 +605,11 @@ ALTER TABLE develop.punti_deposito OWNER TO postgres;
 
 CREATE TABLE develop.storico_ordini (
     id integer NOT NULL,
-    ordine_id integer,
-    data_consegna date,
-    negozio_id character varying(7),
-    fornitore_id character varying(7),
-    data_registrazione timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    ordine_id integer NOT NULL,
+    data_consegna date NOT NULL,
+    negozio_id character varying(7) NOT NULL,
+    fornitore_id character varying(7) NOT NULL,
+    data_registrazione timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -586,7 +632,7 @@ CREATE SEQUENCE develop.storico_ordini_id_seq
 ALTER SEQUENCE develop.storico_ordini_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4958 (class 0 OID 0)
+-- TOC entry 4971 (class 0 OID 0)
 -- Dependencies: 235
 -- Name: storico_ordini_id_seq; Type: SEQUENCE OWNED BY; Schema: develop; Owner: postgres
 --
@@ -600,10 +646,10 @@ ALTER SEQUENCE develop.storico_ordini_id_seq OWNED BY develop.storico_ordini.id;
 --
 
 CREATE TABLE develop.storico_tessere (
-    proprietario character(16),
-    punti integer,
-    negozio_di_rilascio character varying(7),
-    data_richiesta date
+    proprietario character(16) NOT NULL,
+    punti integer NOT NULL,
+    negozio_di_rilascio character varying(7) NOT NULL,
+    data_richiesta date NOT NULL
 );
 
 
@@ -616,7 +662,7 @@ ALTER TABLE develop.storico_tessere OWNER TO postgres;
 
 CREATE TABLE develop.tessere (
     punti integer DEFAULT 0 NOT NULL,
-    data_richiesta date NOT NULL,
+    data_richiesta date DEFAULT CURRENT_DATE NOT NULL,
     proprietario character(16) NOT NULL,
     negozio_di_rilascio character varying(7) NOT NULL
 );
@@ -652,7 +698,7 @@ CREATE TABLE develop.utenze (
 ALTER TABLE develop.utenze OWNER TO postgres;
 
 --
--- TOC entry 4716 (class 2604 OID 18914)
+-- TOC entry 4718 (class 2604 OID 18914)
 -- Name: fatture id; Type: DEFAULT; Schema: develop; Owner: postgres
 --
 
@@ -660,7 +706,7 @@ ALTER TABLE ONLY develop.fatture ALTER COLUMN id SET DEFAULT nextval('develop.fa
 
 
 --
--- TOC entry 4718 (class 2604 OID 19175)
+-- TOC entry 4720 (class 2604 OID 19175)
 -- Name: ordini id; Type: DEFAULT; Schema: develop; Owner: postgres
 --
 
@@ -668,7 +714,7 @@ ALTER TABLE ONLY develop.ordini ALTER COLUMN id SET DEFAULT nextval('develop.ord
 
 
 --
--- TOC entry 4719 (class 2604 OID 19214)
+-- TOC entry 4722 (class 2604 OID 19214)
 -- Name: storico_ordini id; Type: DEFAULT; Schema: develop; Owner: postgres
 --
 
@@ -676,276 +722,391 @@ ALTER TABLE ONLY develop.storico_ordini ALTER COLUMN id SET DEFAULT nextval('dev
 
 
 --
--- TOC entry 4924 (class 0 OID 18834)
+-- TOC entry 4931 (class 0 OID 18834)
 -- Dependencies: 218
 -- Data for Name: clienti; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.clienti (nome, login, codice_fiscale, cognome, genere) FROM stdin;
-Claudio	claudio.gennari@gmail.com	CLDGNR99C08F576W	Gennari	M
-Sara	sara.brusaferri@gmail.com	SRABRS98C08F576W	Brusaferri	F
-Riccardo	riccardo.nuzzo@gmail.com	NZZRCR90C08H501U	Nuzzo	M
-Carlo	carlo.sallusti@gmail.com	CRSLST95C55F205Z	Sallusti	M
-Sara	sara.gianni@gmail.com	GRNSA95C55F205ZU	Gianni	F
+Frodo	frodo.baggins@contea.tdm	BGSFRD95C54F205Z	Baggins	M
+Peregrino	peregrino.tuc@contea.tdm	TUCPRG20C08H507E	Tuc	M
+Grima	grima.vermilinguo@rohan.tdm	GRMVRM90C08H501U	Vermilinguo	M
 \.
 
 
 --
--- TOC entry 4933 (class 0 OID 18960)
+-- TOC entry 4940 (class 0 OID 18960)
 -- Dependencies: 227
 -- Data for Name: costi; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.costi (deposito, prodotto, prezzo) FROM stdin;
-01JTS01	P00001	1.20
-01JTS01	P00002	1.50
-01JTS02	P00003	0.90
-01JTS04	P00005	1.10
-01JTS05	P00001	1.25
-01JTS06	P00002	1.45
-01JTS14	P00001	1.20
-01JTS15	P00002	1.50
-01JTS16	P00003	0.90
-01JTS17	P00004	6.50
-01JTS18	P00005	1.10
-01JTS19	P00001	1.25
-01JTS20	P00002	1.45
-01JTS03	P00004	4.00
-01JTS14	P00004	4.10
+PNT0003	PRD0001	50000.00
+PNT0004	PRD0005	1500.00
+PNT0005	PRD0022	1200.00
+PNT0007	PRD0003	20.00
+PNT0008	PRD0008	100.00
+PNT0011	PRD0013	2000.00
+PNT0012	PRD0007	25000.00
+PNT0013	PRD0015	1800.00
+PNT0016	PRD0006	450.00
+PNT0019	PRD0024	300.00
+PNT0003	PRD0010	900.00
+PNT0004	PRD0002	7000.00
+PNT0013	PRD0029	50.00
+PNT0008	PRD0023	500.00
+PNT0005	PRD0025	250.00
+PNT0001	PRD0001	75000.00
+PNT0002	PRD0003	30.00
+PNT0006	PRD0011	1200.00
+PNT0009	PRD0014	850.00
+PNT0010	PRD0017	30000.00
+PNT0014	PRD0010	1200.00
+PNT0015	PRD0002	9000.00
+PNT0017	PRD0027	150.00
+PNT0018	PRD0018	4500.00
+PNT0020	PRD0021	70.00
+PNT0014	PRD0005	2100.00
+PNT0020	PRD0029	65.00
+PNT0017	PRD0023	650.00
+PNT0002	PRD0025	352.00
+PNT0004	PRD0017	70.00
+PNT0004	PRD0009	70.00
+PNT0001	PRD0003	18.50
+PNT0001	PRD0008	22.00
+PNT0001	PRD0005	12.75
+PNT0001	PRD0006	17.30
+PNT0002	PRD0005	13.20
+PNT0002	PRD0007	25.00
+PNT0002	PRD0010	20.80
+PNT0002	PRD0001	16.90
+PNT0006	PRD0014	28.90
+PNT0006	PRD0017	30.00
+PNT0006	PRD0003	19.10
+PNT0006	PRD0008	22.30
+PNT0009	PRD0018	33.60
+PNT0009	PRD0010	20.50
+PNT0009	PRD0005	14.00
+PNT0009	PRD0006	17.80
+PNT0010	PRD0008	23.40
+PNT0010	PRD0011	20.70
+PNT0010	PRD0003	18.00
+PNT0010	PRD0001	15.50
+PNT0011	PRD0001	16.20
+PNT0014	PRD0003	19.80
+PNT0014	PRD0006	17.60
+PNT0014	PRD0001	15.70
+PNT0015	PRD0006	18.30
+PNT0015	PRD0014	28.00
+PNT0015	PRD0003	20.10
+PNT0015	PRD0008	22.70
+PNT0017	PRD0018	34.20
+PNT0017	PRD0005	13.80
+PNT0017	PRD0001	15.80
+PNT0018	PRD0021	36.40
+PNT0018	PRD0008	23.10
+PNT0018	PRD0003	18.60
+PNT0018	PRD0010	21.10
+PNT0020	PRD0006	17.10
+PNT0020	PRD0018	32.70
+PNT0020	PRD0005	13.50
+PNT0009	PRD0022	38.80
+PNT0009	PRD0017	30.50
+PNT0009	PRD0009	15.20
 \.
 
 
 --
--- TOC entry 4932 (class 0 OID 18945)
+-- TOC entry 4939 (class 0 OID 18945)
 -- Dependencies: 226
 -- Data for Name: disponibilita; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.disponibilita (deposito, prodotto, quantita) FROM stdin;
-01JTS06	P00002	90
-01JTS15	P00002	80
-01JTS16	P00003	200
-01JTS17	P00004	150
-01JTS18	P00005	100
-01JTS19	P00001	60
-01JTS20	P00002	20
-01JTS14	P00001	13
-01JTS14	P00004	80
-01JTS03	P00004	87
-01JTS02	P00003	190
-01JTS04	P00005	80
-01JTS01	P00001	90
-01JTS01	P00002	50
-01JTS05	P00001	50
+PNT0001	PRD0003	20
+PNT0001	PRD0008	15
+PNT0001	PRD0005	10
+PNT0002	PRD0005	10
+PNT0002	PRD0007	7
+PNT0002	PRD0010	6
+PNT0002	PRD0001	2
+PNT0006	PRD0011	12
+PNT0006	PRD0014	10
+PNT0006	PRD0017	8
+PNT0006	PRD0003	14
+PNT0006	PRD0008	9
+PNT0009	PRD0014	10
+PNT0009	PRD0018	12
+PNT0009	PRD0010	7
+PNT0009	PRD0005	5
+PNT0009	PRD0006	6
+PNT0010	PRD0008	12
+PNT0010	PRD0011	9
+PNT0010	PRD0003	10
+PNT0010	PRD0001	3
+PNT0004	PRD0005	80
+PNT0007	PRD0003	200
+PNT0008	PRD0008	90
+PNT0011	PRD0013	60
+PNT0012	PRD0007	70
+PNT0013	PRD0015	40
+PNT0016	PRD0006	150
+PNT0019	PRD0024	95
+PNT0014	PRD0010	15
+PNT0003	PRD0010	70
+PNT0004	PRD0002	120
+PNT0013	PRD0029	80
+PNT0008	PRD0023	60
+PNT0005	PRD0025	50
+PNT0011	PRD0001	1
+PNT0014	PRD0005	7
+PNT0014	PRD0003	11
+PNT0014	PRD0006	8
+PNT0014	PRD0001	2
+PNT0015	PRD0002	9
+PNT0015	PRD0006	7
+PNT0015	PRD0014	8
+PNT0015	PRD0003	10
+PNT0015	PRD0008	5
+PNT0017	PRD0027	6
+PNT0017	PRD0023	7
+PNT0017	PRD0018	8
+PNT0017	PRD0005	9
+PNT0017	PRD0001	3
+PNT0018	PRD0018	15
+PNT0018	PRD0021	10
+PNT0018	PRD0008	9
+PNT0018	PRD0003	12
+PNT0018	PRD0010	7
+PNT0020	PRD0021	8
+PNT0020	PRD0029	10
+PNT0020	PRD0006	7
+PNT0020	PRD0018	6
+PNT0020	PRD0005	5
+PNT0005	PRD0022	46
+PNT0009	PRD0022	4
+PNT0009	PRD0017	3
+PNT0009	PRD0009	1
+PNT0001	PRD0001	0
+PNT0010	PRD0017	10
+PNT0002	PRD0003	14
+PNT0004	PRD0017	28
+PNT0004	PRD0009	68
+PNT0001	PRD0006	7
 \.
 
 
 --
--- TOC entry 4930 (class 0 OID 18910)
+-- TOC entry 4937 (class 0 OID 18910)
 -- Dependencies: 224
 -- Data for Name: fatture; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
-COPY develop.fatture (sconto_applicato, totale, data_acquisto, id, cliente) FROM stdin;
-0.00	20.00	2025-06-21	3	NZZRCR90C08H501U
-0.00	32.00	2025-06-21	4	NZZRCR90C08H501U
-0.00	120.00	2025-06-21	5	NZZRCR90C08H501U
-0.00	40.00	2025-06-21	6	SRABRS98C08F576W
-0.00	40.00	2025-06-21	7	SRABRS98C08F576W
-0.00	27.00	2025-06-21	12	GRNSA95C55F205ZU
-0.00	27.00	2025-06-21	13	GRNSA95C55F205ZU
-0.00	9.00	2025-06-21	14	GRNSA95C55F205ZU
-0.00	6.00	2025-06-21	15	GRNSA95C55F205ZU
-0.00	1.10	2025-06-21	16	GRNSA95C55F205ZU
-0.00	2.20	2025-06-21	17	GRNSA95C55F205ZU
-0.00	7.70	2025-06-21	18	GRNSA95C55F205ZU
-0.00	11.00	2025-06-21	19	GRNSA95C55F205ZU
-0.00	21.00	2025-06-21	20	GRNSA95C55F205ZU
-0.00	12.50	2025-06-21	21	SRABRS98C08F576W
+COPY develop.fatture (sconto_applicato, totale, data_acquisto, id, cliente, negozio) FROM stdin;
+0.00	75000.00	2025-06-23	33	BGSFRD95C54F205Z	PNT0001
+100.00	119900.00	2025-06-23	34	BGSFRD95C54F205Z	PNT0010
+0.00	30.00	2025-06-24	35	TUCPRG20C08H507E	PNT0002
+0.00	17.30	2025-06-24	36	GRMVRM90C08H501U	PNT0001
 \.
 
 
 --
--- TOC entry 4928 (class 0 OID 18880)
+-- TOC entry 4935 (class 0 OID 18880)
 -- Dependencies: 222
 -- Data for Name: fornitori; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.fornitori (id, partita_iva) FROM stdin;
-01JTS25	11223344556
-01JTS14	01234567890
-01JTS15	09876543210
-01JTS16	12345678901
-01JTS17	23456789012
-01JTS18	34567890123
-01JTS19	45678901234
-01JTS20	56789012345
-01JTS21	67890123456
-01JTS22	78901234567
-01JTS23	89012345678
-01JTS24	90123456789
+PNT0003	00000000001
+PNT0004	00000000002
+PNT0005	00000000003
+PNT0007	00000000004
+PNT0008	00000000005
+PNT0011	00000000006
+PNT0012	00000000007
+PNT0013	00000000008
+PNT0016	00000000009
+PNT0019	00000000010
 \.
 
 
 --
--- TOC entry 4923 (class 0 OID 18815)
+-- TOC entry 4930 (class 0 OID 18815)
 -- Dependencies: 217
 -- Data for Name: manager; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.manager (id, nome, login, cognome, genere) FROM stdin;
-1	Mario	mario.brambilla@protonmail.com	Brambilla	M
+2	Aragorn	aragorn.elessar@gondor.tdm	Figlio di Arathorn	M
+1	Gandalf	gandalf.grigio@valinor.ea	Il Grigio	M
 \.
 
 
 --
--- TOC entry 4927 (class 0 OID 18860)
+-- TOC entry 4934 (class 0 OID 18860)
 -- Dependencies: 221
 -- Data for Name: negozi; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.negozi (id, orario_apertura, orario_chiusura, responsabile, manager, attivo) FROM stdin;
-01JTS13	09:00:00	18:00:00	Davide Fontana	1	t
-01JTS03	09:00:00	18:00:00	Giovanni Verdi	1	t
-01JTS04	08:00:00	17:00:00	Chiara Neri	1	t
-01JTS05	07:30:00	16:30:00	Federico Gallo	1	t
-01JTS06	08:00:00	17:00:00	Elena Russo	1	t
-01JTS07	09:00:00	18:00:00	Luca Conti	1	t
-01JTS08	08:30:00	17:30:00	Sara Costa	1	t
-01JTS09	08:00:00	16:00:00	Alessandro Greco	1	t
-01JTS10	07:00:00	15:00:00	Martina De Luca	1	t
-01JTS11	08:00:00	17:00:00	Giorgio Rinaldi	1	t
-01JTS12	08:00:00	17:00:00	Francesca Moretti	1	t
-01JTS02	08:30:00	17:30:00	Luisa Bianchi	1	t
-01JTS01	08:30:00	17:30:00	Luisa Bianchi	1	t
+PNT0001	09:00:00	18:00:00	Bilbo Baggins	2	t
+PNT0002	08:30:00	17:30:00	Boromir di Gondor	2	t
+PNT0006	10:00:00	19:00:00	Éowyn di Rohan	2	t
+PNT0009	08:00:00	16:00:00	Théodred del Mark	2	t
+PNT0010	09:00:00	17:00:00	Legolas di Bosco Atro	2	t
+PNT0014	10:00:00	18:00:00	Bard l’Arciere	2	t
+PNT0015	09:00:00	17:00:00	Nob del Pony Rampante	2	t
+PNT0017	08:00:00	16:30:00	Imrahil di Dol Amroth	2	t
+PNT0018	09:30:00	18:30:00	Gríma Vermilinguo	2	t
+PNT0020	08:00:00	17:00:00	Tom Bombadil	2	t
 \.
 
 
 --
--- TOC entry 4937 (class 0 OID 19172)
+-- TOC entry 4944 (class 0 OID 19172)
 -- Dependencies: 233
 -- Data for Name: ordini; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
-COPY develop.ordini (id, data_consegna, negozio, fornitore) FROM stdin;
-1	2025-06-21	01JTS02	01JTS14
-2	2025-06-21	01JTS02	01JTS14
-3	2025-06-21	01JTS02	01JTS14
-4	2025-06-21	01JTS02	01JTS14
-5	2025-06-21	01JTS10	01JTS14
-6	2025-06-21	01JTS10	01JTS14
-7	2025-06-21	01JTS10	01JTS14
+COPY develop.ordini (id, data_consegna, negozio, fornitore, completato) FROM stdin;
+22	2025-06-23	PNT0009	PNT0005	t
+23	2025-06-23	PNT0009	PNT0004	t
+24	2025-06-23	PNT0009	PNT0004	t
+25	2025-06-24	PNT0001	PNT0004	f
+26	2025-06-24	PNT0001	PNT0004	f
+27	2025-06-24	PNT0001	PNT0004	f
+28	2025-06-24	PNT0020	PNT0004	f
 \.
 
 
 --
--- TOC entry 4931 (class 0 OID 18923)
+-- TOC entry 4938 (class 0 OID 18923)
 -- Dependencies: 225
 -- Data for Name: prodotti; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.prodotti (id, nome, descrizione) FROM stdin;
-P00001	Latte Intero	Latte fresco intero da 1 litro
-P00002	Pane Integrale	Pane integrale a fette, confezione da 500g
-P00003	Pasta Penne	Pasta di semola di grano duro, penne rigate, 500g
-P00004	Olio Extra Vergine	Olio extra vergine di oliva, bottiglia da 1 litro
-P00005	Pomodori Pelati	Pomodori pelati in scatola, 400g
+PRD0001	Anello del Potere	Un anello forgiato da Sauron per dominare tutti gli altri. Conferisce invisibilità e potere, ma corrompe chi lo possiede.
+PRD0002	Spada Andúril	La spada riforgiata dai frammenti di Narsil, brandita da Aragorn. Simbolo del ritorno del re.
+PRD0003	Manto Elfico	Un manto grigio-verde donato dagli Elfi di Lórien. Permette di confondersi con l’ambiente circostante.
+PRD0004	Corno di Boromir	Corno di guerra portato da Boromir. Usato per richiedere aiuto in caso di emergenza.
+PRD0005	Pane Lembas	Cibo elfico ad alta energia. Un solo morso può sostenere un viaggiatore per ore.
+PRD0006	Bastone di Gandalf	Bastone magico di Gandalf, utilizzato per canalizzare il potere magico e fare luce nelle tenebre.
+PRD0007	Palantír	Una delle Pietre Veggenti. Permette la comunicazione a distanza e la visione di eventi lontani nel tempo e nello spazio.
+PRD0008	Fiala di Galadriel	Contenitore di cristallo con la luce della Stella di Eärendil. Illumina l’oscurità e respinge il male.
+PRD0009	Ascia di Gimli	Ascia da battaglia nanica, robusta e affilata. Impiegata con maestria da Gimli, figlio di Glóin.
+PRD0010	Pipa di Bilbo	Una semplice pipa in legno. Appartenuta a Bilbo Baggins, usata per fumare erba pipa della Contea.
+PRD0011	Elmo di Théoden	Elmo dorato con criniera di cavallo, simbolo della regalità di Rohan. Indossato da Théoden in battaglia.
+PRD0012	Scudo di Gondor	Scudo resistente con l’emblema dell’albero bianco. Usato dai soldati di Minas Tirith.
+PRD0013	Lama di Morgul	Daga maledetta dei Nazgûl. Una ferita inferta da essa può corrompere l’anima.
+PRD0014	Veste di Mithril	Corazza leggera e resistente fatta di mithril. Donata a Frodo da Bilbo, vale più dell’intera Contea.
+PRD0015	Anello di Barahir	Antico anello elfico, simbolo della stirpe di Númenor. Portato da Aragorn.
+PRD0016	Stella del Vespro	Gioiello donato da Arwen ad Aragorn. Simboleggia amore eterno e speranza.
+PRD0017	Arco di Legolas	Arco lungo elfico di grande precisione, utilizzato con maestria da Legolas di Bosco Atro.
+PRD0018	Libro Rosso dei Confini Occidentali	Cronaca scritta da Bilbo e Frodo, contenente la storia dello Hobbit e della Guerra dell’Anello.
+PRD0019	Fiala di Athelas	Fiala contenente foglie di athelas, pianta curativa usata dai Re di Gondor.
+PRD0020	Chiave di Erebor	Chiave antica che apre la porta segreta della Montagna Solitaria. Consegnata da Thorin a Bilbo.
+PRD0021	Ciocca di Capelli di Galadriel	Tre fili dorati donati da Galadriel a Gimli come segno di stima e amicizia. Simbolo raro di benevolenza elfica verso i Nani.
+PRD0022	Anello di Fuoco Narya	Uno dei Tre Anelli degli Elfi, portato da Gandalf. Accresce il coraggio e la forza interiore di chi lo circonda.
+PRD0023	Collana Nauglamír	Antica collana dei Nani, incastonata con il Silmaril. Oggetto di grande bellezza e contesa nelle ere passate.
+PRD0024	Coppa di Rohan	Coppa cerimoniale utilizzata nelle feste del regno di Rohan. Intarsiata con rune e cavalli alati.
+PRD0025	Lanterna di Ithilien	Lanterna elfica che emana luce soffusa, usata dai rangers di Gondor durante le ricognizioni notturne.
+PRD0026	Specchio di Galadriel	Bacile d’acqua incantato in cui si possono vedere visioni del passato, presente e possibili futuri.
+PRD0027	Stendardo di Arwen	Stendardo nero con l’emblema reale di Elendil. Donato ad Aragorn da Arwen prima della sua incoronazione.
+PRD0028	Anello d’Acqua Nenya	Anello elfico portato da Galadriel, fatto di mithril e diamante. Preserva la bellezza e la purezza dei luoghi.
+PRD0029	Fionda di Sam	Semplice fionda utilizzata da Samvise Gamgee nei viaggi. Piccolo simbolo di coraggio hobbit.
+PRD0030	Zaino di Frodo	Zaino robusto usato da Frodo durante il viaggio verso Mordor. Contiene provviste, mantello e il diario.
+PRD0031	Vialetto della Contea	Pietra levigata proveniente da un vialetto di Hobbiton. Ricordo di casa per chi è lontano.
 \.
 
 
 --
--- TOC entry 4934 (class 0 OID 18976)
+-- TOC entry 4941 (class 0 OID 18976)
 -- Dependencies: 228
 -- Data for Name: prodotti_fattura; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.prodotti_fattura (prodotto, fattura, quantita) FROM stdin;
-P00004	3	5
-P00004	4	8
-P00004	5	30
-P00004	6	10
-P00004	7	10
-P00001	12	10
-P00002	12	10
-P00001	13	10
-P00002	13	10
-P00003	14	10
-P00001	15	5
-P00005	16	1
-P00005	17	2
-P00005	18	7
-P00005	19	10
-P00001	20	5
-P00002	20	10
-P00001	21	10
+PRD0001	33	1
+PRD0017	34	4
+PRD0003	35	1
+PRD0006	36	1
 \.
 
 
 --
--- TOC entry 4938 (class 0 OID 19195)
+-- TOC entry 4945 (class 0 OID 19195)
 -- Dependencies: 234
 -- Data for Name: prodotti_ordine; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.prodotti_ordine (quantita, ordine, prodotto) FROM stdin;
-50	1	P00001
-7	2	P00001
-7	3	P00004
-7	4	P00004
-2	5	P00004
-2	6	P00004
-2	7	P00004
+4	22	PRD0022
+3	23	PRD0017
+1	24	PRD0009
+1	25	PRD0017
+1	26	PRD0017
+1	27	PRD0017
+1	28	PRD0009
 \.
 
 
 --
--- TOC entry 4926 (class 0 OID 18855)
+-- TOC entry 4933 (class 0 OID 18855)
 -- Dependencies: 220
 -- Data for Name: punti_deposito; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.punti_deposito (id, indirizzo) FROM stdin;
-01JTS21	7 Wayridge Place
-01JTS01	28964 Ridgeview Park
-01JTS02	136 Service Junction
-01JTS03	05354 Raven Parkway
-01JTS04	42 Village Green Trail
-01JTS05	753 Kings Street
-01JTS06	0403 Garrison Crossing
-01JTS07	230 Independence Terrace
-01JTS08	16247 Northview Way
-01JTS09	4201 Derek Junction
-01JTS10	3 Annamark Pass
-01JTS11	833 Huxley Drive
-01JTS12	44 Scofield Place
-01JTS13	9 Bartillon Point
-01JTS14	81 Northport Place
-01JTS15	39653 Moose Drive
-01JTS16	5585 Mosinee Road
-01JTS17	3010 Quincy Center
-01JTS18	5 Golden Leaf Plaza
-01JTS19	7 Clarendon Place
-01JTS20	718 Scofield Drive
-01JTS22	247 Green Ridge Point
-01JTS23	04276 Grayhawk Junction
-01JTS24	494 Westport Point
-01JTS25	019 Hagan Street
+PNT0001	Bottega dell’Anello, Hobbiton, Contea
+PNT0002	Emporio di Minas Tirith, Prima Cerchia, Gondor
+PNT0003	Magazzino dei Monti Brumosi, Passo Alto
+PNT0004	Forgia di Erebor, Montagna Solitaria
+PNT0005	Torre Bianca di Imladris, Gran Burrone
+PNT0006	Dispensa del Fosso di Helm, Rohan
+PNT0007	Emporio dei Grigi Porti, Lindon
+PNT0008	Rifornimenti di Osgiliath, Riva Orientale, Gondor
+PNT0009	Stanza delle Provviste, Edoras, Colle d’Oro
+PNT0010	Bottega del Bosco Atro, Palazzo del Re, Thranduil
+PNT0011	Magazzino del Nero Cancello, Mordor
+PNT0012	Dispensa di Lórien, Caras Galadhon
+PNT0013	Tesoreria di Khazad-dûm, Moria
+PNT0014	Mercato del Lago, Città del Lago, Valle
+PNT0015	Bottega di Bree, Accanto al Pony Rampante
+PNT0016	Rivendita delle Colline di Ferro, Avamposto Nord
+PNT0017	Stoccaggio di Dol Amroth, Porto Occidentale
+PNT0018	Bottega di Isengard, Torre di Orthanc
+PNT0019	Magazzino di Angmar, Rovine di Carn Dûm
+PNT0020	Dispensa dei Tumuli, Piana di Andrath
 \.
 
 
 --
--- TOC entry 4940 (class 0 OID 19211)
+-- TOC entry 4947 (class 0 OID 19211)
 -- Dependencies: 236
 -- Data for Name: storico_ordini; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.storico_ordini (id, ordine_id, data_consegna, negozio_id, fornitore_id, data_registrazione) FROM stdin;
 1	7	2025-06-21	01JTS10	01JTS14	2025-06-21 13:56:56.950574
+3	11	2025-06-22	01JTS02	01JTS16	2025-06-22 15:13:02.521353
+4	12	2025-06-22	01JTS02	01JTS16	2025-06-22 15:13:34.00533
+5	13	2025-06-22	01JTS12	01JTS14	2025-06-22 15:18:59.606492
+6	14	2025-06-22	01JTS03	01JTS14	2025-06-22 18:13:15.007607
+7	15	2025-06-22	01JTS04	01JTS14	2025-06-22 18:40:36.505902
+8	16	2025-06-22	01JTS04	01JTS14	2025-06-22 18:41:13.600936
+14	22	2025-06-23	PNT0009	PNT0005	2025-06-23 22:36:51.738051
+15	23	2025-06-23	PNT0009	PNT0004	2025-06-23 22:36:51.738051
+16	24	2025-06-23	PNT0009	PNT0004	2025-06-23 22:36:51.738051
+17	25	2025-06-24	PNT0001	PNT0004	2025-06-24 20:20:53.161114
+18	26	2025-06-24	PNT0001	PNT0004	2025-06-24 20:21:00.808687
+19	27	2025-06-24	PNT0001	PNT0004	2025-06-24 20:21:47.058629
+20	28	2025-06-24	PNT0020	PNT0004	2025-06-24 20:45:46.067464
 \.
 
 
 --
--- TOC entry 4935 (class 0 OID 19164)
+-- TOC entry 4942 (class 0 OID 19164)
 -- Dependencies: 231
 -- Data for Name: storico_tessere; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
@@ -956,61 +1117,60 @@ SRABRS98C08F576W	3	01JTS02	2009-06-24
 
 
 --
--- TOC entry 4925 (class 0 OID 18844)
+-- TOC entry 4932 (class 0 OID 18844)
 -- Dependencies: 219
 -- Data for Name: tessere; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.tessere (punti, data_richiesta, proprietario, negozio_di_rilascio) FROM stdin;
-95	2009-06-24	SRABRS98C08F576W	01JTS02
+194600	2025-06-23	BGSFRD95C54F205Z	PNT0001
 \.
 
 
 --
--- TOC entry 4922 (class 0 OID 18810)
+-- TOC entry 4929 (class 0 OID 18810)
 -- Dependencies: 216
 -- Data for Name: utenze; Type: TABLE DATA; Schema: develop; Owner: postgres
 --
 
 COPY develop.utenze (login, password) FROM stdin;
-claudio.gennari@gmail.com	$2b$12$VC3rIRGLGphbSasHU0AZEOU3VnZB3mTt2xKRDIeQwVwXy/.wCfN6C
-sara.gianni@gmail.com	$2y$10$saJehlmBIZDwWkhIM4ojoOTdTnxhxiVggbKkW2dkcNtNx3siW0r9e
-mario.brambilla@protonmail.com	$2y$10$/llMa72HAQBNJoKLiPlssuSVxcMgSBqegAPCuXXdOdnLxYdRH.4km
-sara.brusaferri@gmail.com	$2y$10$ym/fBAeUvT5PXDBX.8pdR.8vdKfZ6DDzYS9NoOjxzCvqI595k2KyW
-riccardo.nuzzo@gmail.com	$2y$10$bNqkjfJHRiELNjqckhKL9ee1p0ZV9M7Jae1SHnMQfOk7CWoW4M3X6
-carlo.sallusti@gmail.com	$2y$10$00tScRFM2FSt.8gDGxJoE.seKh7kZhG8cX8j0v0661Zy3LTpso6IW
+aragorn.elessar@gondor.tdm	$2b$12$XMvi6mtoDypc3NoFVfEjyevGaOtVpP5CEpQ6.6v4fRFQ.2BMQ3rCO
+frodo.baggins@contea.tdm	$2y$10$2prECF6/cbFMga7Ff7KG8.o9jU8o8PwCN9HygDz.5WHFKwaVliFQm
+peregrino.tuc@contea.tdm	$2y$10$xv9p2aug9yh22YaZeeo2n.cfpUGNxwTpVFmWspHR6Y4x9iHmSDMA.
+grima.vermilinguo@rohan.tdm	$2y$10$9f3f2wuWI2wIXSh4seMMOeCdUMHhbbPk/iRUocFPk0zihFuy/pd96
+gandalf.grigio@valinor.ea	$2b$12$THTJZAAnyM3nSB1keS8xW.Dcx54sIcBhCPyYV2OA4ARQe1fPajvDS
 \.
 
 
 --
--- TOC entry 4961 (class 0 OID 0)
+-- TOC entry 4975 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: fatture_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
 
-SELECT pg_catalog.setval('develop.fatture_id_seq', 21, true);
+SELECT pg_catalog.setval('develop.fatture_id_seq', 36, true);
 
 
 --
--- TOC entry 4962 (class 0 OID 0)
+-- TOC entry 4976 (class 0 OID 0)
 -- Dependencies: 232
 -- Name: ordini_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
 
-SELECT pg_catalog.setval('develop.ordini_id_seq', 7, true);
+SELECT pg_catalog.setval('develop.ordini_id_seq', 28, true);
 
 
 --
--- TOC entry 4963 (class 0 OID 0)
+-- TOC entry 4977 (class 0 OID 0)
 -- Dependencies: 235
 -- Name: storico_ordini_id_seq; Type: SEQUENCE SET; Schema: develop; Owner: postgres
 --
 
-SELECT pg_catalog.setval('develop.storico_ordini_id_seq', 1, true);
+SELECT pg_catalog.setval('develop.storico_ordini_id_seq', 20, true);
 
 
 --
--- TOC entry 4728 (class 2606 OID 18838)
+-- TOC entry 4733 (class 2606 OID 18838)
 -- Name: clienti cliente_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1019,7 +1179,7 @@ ALTER TABLE ONLY develop.clienti
 
 
 --
--- TOC entry 4746 (class 2606 OID 19028)
+-- TOC entry 4751 (class 2606 OID 19028)
 -- Name: costi costi_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1028,7 +1188,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4744 (class 2606 OID 19014)
+-- TOC entry 4749 (class 2606 OID 19014)
 -- Name: disponibilita disponibilita_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1037,7 +1197,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4740 (class 2606 OID 18917)
+-- TOC entry 4745 (class 2606 OID 18917)
 -- Name: fatture fatture_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1046,7 +1206,7 @@ ALTER TABLE ONLY develop.fatture
 
 
 --
--- TOC entry 4736 (class 2606 OID 19053)
+-- TOC entry 4741 (class 2606 OID 19053)
 -- Name: fornitori fornitore_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1055,7 +1215,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4738 (class 2606 OID 18886)
+-- TOC entry 4743 (class 2606 OID 18886)
 -- Name: fornitori fornitore_unique; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1064,7 +1224,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4734 (class 2606 OID 19065)
+-- TOC entry 4739 (class 2606 OID 19065)
 -- Name: negozi negozio_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1073,7 +1233,7 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4726 (class 2606 OID 18819)
+-- TOC entry 4731 (class 2606 OID 18819)
 -- Name: manager newtable_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1082,7 +1242,7 @@ ALTER TABLE ONLY develop.manager
 
 
 --
--- TOC entry 4750 (class 2606 OID 19179)
+-- TOC entry 4755 (class 2606 OID 19179)
 -- Name: ordini ordini_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1091,7 +1251,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4748 (class 2606 OID 19100)
+-- TOC entry 4753 (class 2606 OID 19100)
 -- Name: prodotti_fattura prodotti_fattura_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1100,7 +1260,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4752 (class 2606 OID 19199)
+-- TOC entry 4757 (class 2606 OID 19199)
 -- Name: prodotti_ordine prodotti_ordine_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1109,7 +1269,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4742 (class 2606 OID 19092)
+-- TOC entry 4747 (class 2606 OID 19092)
 -- Name: prodotti prodotti_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1118,7 +1278,7 @@ ALTER TABLE ONLY develop.prodotti
 
 
 --
--- TOC entry 4732 (class 2606 OID 19034)
+-- TOC entry 4737 (class 2606 OID 19034)
 -- Name: punti_deposito punto_deposito_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1127,7 +1287,7 @@ ALTER TABLE ONLY develop.punti_deposito
 
 
 --
--- TOC entry 4754 (class 2606 OID 19217)
+-- TOC entry 4759 (class 2606 OID 19217)
 -- Name: storico_ordini storico_ordini_pkey; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1136,7 +1296,7 @@ ALTER TABLE ONLY develop.storico_ordini
 
 
 --
--- TOC entry 4730 (class 2606 OID 18849)
+-- TOC entry 4735 (class 2606 OID 18849)
 -- Name: tessere tessera_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1145,7 +1305,7 @@ ALTER TABLE ONLY develop.tessere
 
 
 --
--- TOC entry 4724 (class 2606 OID 18814)
+-- TOC entry 4729 (class 2606 OID 18814)
 -- Name: utenze utenze_pk; Type: CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1154,7 +1314,7 @@ ALTER TABLE ONLY develop.utenze
 
 
 --
--- TOC entry 4774 (class 2620 OID 19226)
+-- TOC entry 4780 (class 2620 OID 19226)
 -- Name: clienti check_login_exclusive_clienti; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1162,7 +1322,7 @@ CREATE TRIGGER check_login_exclusive_clienti BEFORE INSERT OR UPDATE ON develop.
 
 
 --
--- TOC entry 4773 (class 2620 OID 19227)
+-- TOC entry 4779 (class 2620 OID 19227)
 -- Name: manager check_login_exclusive_manager; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1170,7 +1330,15 @@ CREATE TRIGGER check_login_exclusive_manager BEFORE INSERT OR UPDATE ON develop.
 
 
 --
--- TOC entry 4777 (class 2620 OID 19219)
+-- TOC entry 4783 (class 2620 OID 19230)
+-- Name: ordini trg_completamento_ordine; Type: TRIGGER; Schema: develop; Owner: postgres
+--
+
+CREATE TRIGGER trg_completamento_ordine AFTER UPDATE OF completato ON develop.ordini FOR EACH ROW EXECUTE FUNCTION develop.aggiorna_disponibilita_al_completamento();
+
+
+--
+-- TOC entry 4784 (class 2620 OID 19243)
 -- Name: ordini trg_storico_ordini; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1178,7 +1346,7 @@ CREATE TRIGGER trg_storico_ordini AFTER INSERT ON develop.ordini FOR EACH ROW EX
 
 
 --
--- TOC entry 4776 (class 2620 OID 19158)
+-- TOC entry 4782 (class 2620 OID 19158)
 -- Name: fatture trigger_aggiorna_punti; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1186,7 +1354,7 @@ CREATE TRIGGER trigger_aggiorna_punti AFTER INSERT ON develop.fatture FOR EACH R
 
 
 --
--- TOC entry 4775 (class 2620 OID 19222)
+-- TOC entry 4781 (class 2620 OID 19222)
 -- Name: negozi trigger_salva_storico_tessere; Type: TRIGGER; Schema: develop; Owner: postgres
 --
 
@@ -1194,7 +1362,7 @@ CREATE TRIGGER trigger_salva_storico_tessere BEFORE UPDATE OF attivo ON develop.
 
 
 --
--- TOC entry 4756 (class 2606 OID 18839)
+-- TOC entry 4761 (class 2606 OID 18839)
 -- Name: clienti cliente_utenze_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1203,7 +1371,7 @@ ALTER TABLE ONLY develop.clienti
 
 
 --
--- TOC entry 4765 (class 2606 OID 19146)
+-- TOC entry 4771 (class 2606 OID 19146)
 -- Name: costi costi_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1212,7 +1380,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4766 (class 2606 OID 19141)
+-- TOC entry 4772 (class 2606 OID 19141)
 -- Name: costi costi_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1221,7 +1389,7 @@ ALTER TABLE ONLY develop.costi
 
 
 --
--- TOC entry 4763 (class 2606 OID 19136)
+-- TOC entry 4769 (class 2606 OID 19136)
 -- Name: disponibilita disponibilita_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1230,7 +1398,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4764 (class 2606 OID 19131)
+-- TOC entry 4770 (class 2606 OID 19131)
 -- Name: disponibilita disponibilita_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1239,7 +1407,7 @@ ALTER TABLE ONLY develop.disponibilita
 
 
 --
--- TOC entry 4762 (class 2606 OID 18918)
+-- TOC entry 4767 (class 2606 OID 18918)
 -- Name: fatture fatture_cliente_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1248,7 +1416,16 @@ ALTER TABLE ONLY develop.fatture
 
 
 --
--- TOC entry 4761 (class 2606 OID 19059)
+-- TOC entry 4768 (class 2606 OID 19254)
+-- Name: fatture fatture_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
+--
+
+ALTER TABLE ONLY develop.fatture
+    ADD CONSTRAINT fatture_negozi_fk FOREIGN KEY (negozio) REFERENCES develop.negozi(id);
+
+
+--
+-- TOC entry 4766 (class 2606 OID 19059)
 -- Name: fornitori fornitori_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1257,7 +1434,7 @@ ALTER TABLE ONLY develop.fornitori
 
 
 --
--- TOC entry 4759 (class 2606 OID 19070)
+-- TOC entry 4764 (class 2606 OID 19070)
 -- Name: negozi negozi_punti_deposito_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1266,7 +1443,7 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4760 (class 2606 OID 18875)
+-- TOC entry 4765 (class 2606 OID 18875)
 -- Name: negozi negozio_manager_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1275,7 +1452,7 @@ ALTER TABLE ONLY develop.negozi
 
 
 --
--- TOC entry 4769 (class 2606 OID 19180)
+-- TOC entry 4775 (class 2606 OID 19180)
 -- Name: ordini ordini_fornitori_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1284,7 +1461,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4770 (class 2606 OID 19185)
+-- TOC entry 4776 (class 2606 OID 19185)
 -- Name: ordini ordini_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1293,7 +1470,7 @@ ALTER TABLE ONLY develop.ordini
 
 
 --
--- TOC entry 4767 (class 2606 OID 18981)
+-- TOC entry 4773 (class 2606 OID 18981)
 -- Name: prodotti_fattura prodotti_fattura_fatture_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1302,7 +1479,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4768 (class 2606 OID 19105)
+-- TOC entry 4774 (class 2606 OID 19105)
 -- Name: prodotti_fattura prodotti_fattura_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1311,7 +1488,7 @@ ALTER TABLE ONLY develop.prodotti_fattura
 
 
 --
--- TOC entry 4771 (class 2606 OID 19200)
+-- TOC entry 4777 (class 2606 OID 19200)
 -- Name: prodotti_ordine prodotti_ordine_ordini_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1320,7 +1497,7 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4772 (class 2606 OID 19205)
+-- TOC entry 4778 (class 2606 OID 19205)
 -- Name: prodotti_ordine prodotti_ordine_prodotti_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1329,25 +1506,25 @@ ALTER TABLE ONLY develop.prodotti_ordine
 
 
 --
--- TOC entry 4757 (class 2606 OID 18850)
+-- TOC entry 4762 (class 2606 OID 19236)
 -- Name: tessere tessera_cliente_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.tessere
-    ADD CONSTRAINT tessera_cliente_fk FOREIGN KEY (proprietario) REFERENCES develop.clienti(codice_fiscale);
+    ADD CONSTRAINT tessera_cliente_fk FOREIGN KEY (proprietario) REFERENCES develop.clienti(codice_fiscale) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
--- TOC entry 4758 (class 2606 OID 19076)
+-- TOC entry 4763 (class 2606 OID 19231)
 -- Name: tessere tessere_negozi_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
 ALTER TABLE ONLY develop.tessere
-    ADD CONSTRAINT tessere_negozi_fk FOREIGN KEY (negozio_di_rilascio) REFERENCES develop.negozi(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT tessere_negozi_fk FOREIGN KEY (negozio_di_rilascio) REFERENCES develop.negozi(id);
 
 
 --
--- TOC entry 4755 (class 2606 OID 18820)
+-- TOC entry 4760 (class 2606 OID 18820)
 -- Name: manager utenze_manager_utenze_fk; Type: FK CONSTRAINT; Schema: develop; Owner: postgres
 --
 
@@ -1356,7 +1533,7 @@ ALTER TABLE ONLY develop.manager
 
 
 --
--- TOC entry 4946 (class 0 OID 0)
+-- TOC entry 4953 (class 0 OID 0)
 -- Dependencies: 6
 -- Name: SCHEMA develop; Type: ACL; Schema: -; Owner: postgres
 --
@@ -1365,7 +1542,7 @@ GRANT USAGE ON SCHEMA develop TO webapp;
 
 
 --
--- TOC entry 4947 (class 0 OID 0)
+-- TOC entry 4954 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: TABLE clienti; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1374,16 +1551,16 @@ GRANT SELECT,INSERT,UPDATE ON TABLE develop.clienti TO webapp;
 
 
 --
--- TOC entry 4948 (class 0 OID 0)
+-- TOC entry 4955 (class 0 OID 0)
 -- Dependencies: 227
 -- Name: TABLE costi; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT ON TABLE develop.costi TO webapp;
+GRANT SELECT,INSERT,UPDATE ON TABLE develop.costi TO webapp;
 
 
 --
--- TOC entry 4949 (class 0 OID 0)
+-- TOC entry 4956 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: TABLE disponibilita; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1392,7 +1569,7 @@ GRANT SELECT,UPDATE ON TABLE develop.disponibilita TO webapp;
 
 
 --
--- TOC entry 4950 (class 0 OID 0)
+-- TOC entry 4957 (class 0 OID 0)
 -- Dependencies: 224
 -- Name: TABLE fatture; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1401,7 +1578,7 @@ GRANT SELECT,INSERT ON TABLE develop.fatture TO webapp;
 
 
 --
--- TOC entry 4952 (class 0 OID 0)
+-- TOC entry 4959 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: SEQUENCE fatture_id_seq; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1410,7 +1587,16 @@ GRANT SELECT,USAGE ON SEQUENCE develop.fatture_id_seq TO webapp;
 
 
 --
--- TOC entry 4953 (class 0 OID 0)
+-- TOC entry 4960 (class 0 OID 0)
+-- Dependencies: 222
+-- Name: TABLE fornitori; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE develop.fornitori TO webapp;
+
+
+--
+-- TOC entry 4961 (class 0 OID 0)
 -- Dependencies: 217
 -- Name: TABLE manager; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1419,25 +1605,43 @@ GRANT SELECT ON TABLE develop.manager TO webapp;
 
 
 --
--- TOC entry 4954 (class 0 OID 0)
+-- TOC entry 4962 (class 0 OID 0)
 -- Dependencies: 221
 -- Name: TABLE negozi; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT ON TABLE develop.negozi TO webapp;
+GRANT SELECT,INSERT ON TABLE develop.negozi TO webapp;
 
 
 --
--- TOC entry 4956 (class 0 OID 0)
+-- TOC entry 4963 (class 0 OID 0)
+-- Dependencies: 233
+-- Name: TABLE ordini; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE develop.ordini TO webapp;
+
+
+--
+-- TOC entry 4965 (class 0 OID 0)
+-- Dependencies: 232
+-- Name: SEQUENCE ordini_id_seq; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT USAGE ON SEQUENCE develop.ordini_id_seq TO webapp;
+
+
+--
+-- TOC entry 4966 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: TABLE prodotti; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT ON TABLE develop.prodotti TO webapp;
+GRANT SELECT,INSERT ON TABLE develop.prodotti TO webapp;
 
 
 --
--- TOC entry 4957 (class 0 OID 0)
+-- TOC entry 4967 (class 0 OID 0)
 -- Dependencies: 228
 -- Name: TABLE prodotti_fattura; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1446,16 +1650,52 @@ GRANT SELECT,INSERT ON TABLE develop.prodotti_fattura TO webapp;
 
 
 --
--- TOC entry 4959 (class 0 OID 0)
+-- TOC entry 4968 (class 0 OID 0)
+-- Dependencies: 234
+-- Name: TABLE prodotti_ordine; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT INSERT ON TABLE develop.prodotti_ordine TO webapp;
+
+
+--
+-- TOC entry 4969 (class 0 OID 0)
+-- Dependencies: 220
+-- Name: TABLE punti_deposito; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT INSERT ON TABLE develop.punti_deposito TO webapp;
+
+
+--
+-- TOC entry 4970 (class 0 OID 0)
+-- Dependencies: 236
+-- Name: TABLE storico_ordini; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE develop.storico_ordini TO webapp;
+
+
+--
+-- TOC entry 4972 (class 0 OID 0)
+-- Dependencies: 235
+-- Name: SEQUENCE storico_ordini_id_seq; Type: ACL; Schema: develop; Owner: postgres
+--
+
+GRANT USAGE ON SEQUENCE develop.storico_ordini_id_seq TO webapp;
+
+
+--
+-- TOC entry 4973 (class 0 OID 0)
 -- Dependencies: 219
 -- Name: TABLE tessere; Type: ACL; Schema: develop; Owner: postgres
 --
 
-GRANT SELECT,UPDATE ON TABLE develop.tessere TO webapp;
+GRANT SELECT,INSERT,UPDATE ON TABLE develop.tessere TO webapp;
 
 
 --
--- TOC entry 4960 (class 0 OID 0)
+-- TOC entry 4974 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: TABLE utenze; Type: ACL; Schema: develop; Owner: postgres
 --
@@ -1463,7 +1703,7 @@ GRANT SELECT,UPDATE ON TABLE develop.tessere TO webapp;
 GRANT SELECT,INSERT,UPDATE ON TABLE develop.utenze TO webapp;
 
 
--- Completed on 2025-06-21 22:34:21
+-- Completed on 2025-06-24 21:13:51
 
 --
 -- PostgreSQL database dump complete

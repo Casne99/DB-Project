@@ -1,3 +1,3 @@
 plain_passwords = [
-    'aragorn.elessar'
+    'gandalf.grigio'
 ]
