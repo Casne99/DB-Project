@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-if (empty($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+if (empty($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'cliente') {
     header('Location: login.php');
     exit;
 }

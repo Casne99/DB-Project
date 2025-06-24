@@ -522,7 +522,10 @@ Il sistema implementa tre livelli di sconto: 5% (100 punti), 15% (200 punti) e 3
 
 == Verifiche funzionali e test di integrazione
 
-In questa sezione vengono documentati i test funzionali eseguiti per verificare il corretto funzionamento del sistema e l'integrazione tra i vari componenti. I test sono stati condotti in un ambiente di sviluppo locale, simulando le principali operazioni che gli utenti eseguiranno nell'applicazione in produzione.
+In questa sezione vengono documentati i test funzionali eseguiti per verificare il corretto funzionamento del sistema e l'integrazione tra i vari componenti. I test sono stati condotti in un ambiente di sviluppo locale, utilizzando Laragon, simulando le principali operazioni che gli utenti eseguiranno nell'applicazione.  +
+Possiamo quindi avviare Apache dall'interfaccia di Laragon:
+
+image::pics/laragon.png[align=center,width=80%]
 
 === Autenticazione e controllo accessi
 
